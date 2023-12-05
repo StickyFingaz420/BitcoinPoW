@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2021 The Bitcoin Core developers
+// Copyright (c) 2015-2020 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -9,7 +9,6 @@
 #include <functional>
 #include <list>
 #include <map>
-#include <thread>
 
 #include <sync.h>
 
@@ -35,8 +34,6 @@ class CScheduler
 public:
     CScheduler();
     ~CScheduler();
-
-    std::thread m_service_thread;
 
     typedef std::function<void()> Function;
 
@@ -65,7 +62,8 @@ public:
     void MockForward(std::chrono::seconds delta_seconds);
 
     /**
-     * Services the queue 'forever'. Should be run in a thread.
+     * Services the queue 'forever'. Should be run in a thread,
+     * and interrupted using boost::interrupt_thread
      */
     void serviceQueue();
 
@@ -74,14 +72,12 @@ public:
     {
         WITH_LOCK(newTaskMutex, stopRequested = true);
         newTaskScheduled.notify_all();
-        if (m_service_thread.joinable()) m_service_thread.join();
     }
     /** Tell any threads running serviceQueue to stop when there is no work left to be done */
     void StopWhenDrained()
     {
         WITH_LOCK(newTaskMutex, stopWhenEmpty = true);
         newTaskScheduled.notify_all();
-        if (m_service_thread.joinable()) m_service_thread.join();
     }
 
     /**
@@ -119,9 +115,9 @@ class SingleThreadedSchedulerClient
 private:
     CScheduler* m_pscheduler;
 
-    Mutex m_callbacks_mutex;
-    std::list<std::function<void()>> m_callbacks_pending GUARDED_BY(m_callbacks_mutex);
-    bool m_are_callbacks_running GUARDED_BY(m_callbacks_mutex) = false;
+    RecursiveMutex m_cs_callbacks_pending;
+    std::list<std::function<void()>> m_callbacks_pending GUARDED_BY(m_cs_callbacks_pending);
+    bool m_are_callbacks_running GUARDED_BY(m_cs_callbacks_pending) = false;
 
     void MaybeScheduleProcessQueue();
     void ProcessQueue();
@@ -146,4 +142,4 @@ public:
     size_t CallbacksPending();
 };
 
-#endif // BITCOIN_SCHEDULER_H
+#endif

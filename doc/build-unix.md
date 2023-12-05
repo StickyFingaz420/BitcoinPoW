@@ -9,7 +9,7 @@ Note
 Always use absolute paths to configure and compile Bitcoin Core and the dependencies.
 For example, when specifying the path of the dependency:
 
-    ../dist/configure --enable-cxx --disable-shared --with-pic --prefix=$BDB_PREFIX
+	../dist/configure --enable-cxx --disable-shared --with-pic --prefix=$BDB_PREFIX
 
 Here BDB_PREFIX must be an absolute path - it is defined using $(pwd) which ensures
 the usage of the absolute path.
@@ -20,7 +20,7 @@ To Build
 ```bash
 ./autogen.sh
 ./configure
-make # use "-j N" for N parallel jobs
+make
 make install # optional
 ```
 
@@ -33,6 +33,7 @@ These dependencies are required:
 
  Library     | Purpose          | Description
  ------------|------------------|----------------------
+ libssl      | Crypto           | Random Number Generation, Elliptic Curve Cryptography
  libboost    | Utility          | Library for threading, data structures, etc
  libevent    | Networking       | OS independent asynchronous networking
 
@@ -41,13 +42,12 @@ Optional dependencies:
  Library     | Purpose          | Description
  ------------|------------------|----------------------
  miniupnpc   | UPnP Support     | Firewall-jumping support
- libnatpmp   | NAT-PMP Support  | Firewall-jumping support
- libdb4.8    | Berkeley DB      | Wallet storage (only needed when legacy wallet enabled)
+ libdb4.8    | Berkeley DB      | Wallet storage (only needed when wallet enabled)
  qt          | GUI              | GUI toolkit (only needed when GUI enabled)
- libqrencode | QR codes in GUI  | QR code generation (only needed when GUI enabled)
- libzmq3     | ZMQ notification | ZMQ notifications (requires ZMQ version >= 4.0.0)
- sqlite3     | SQLite DB        | Wallet storage (only needed when descriptor wallet enabled)
- systemtap   | Tracing (USDT)   | Statically defined tracepoints
+ libqrencode | QR codes in GUI  | Optional for generating QR codes (only needed when GUI enabled)
+ univalue    | Utility          | JSON parsing and encoding (bundled version will be used unless --with-system-univalue passed to configure)
+ libzmq3     | ZMQ notification | Optional, allows generating ZMQ notifications (requires ZMQ version >= 4.0.0)
+ sqlite3     | SQLite DB        | Optional, wallet storage (only needed when wallet enabled)
 
 For the versions used, see [dependencies.md](dependencies.md)
 
@@ -82,30 +82,47 @@ Build requirements:
 
 Now, you can either build from self-compiled [depends](/depends/README.md) or install the required dependencies:
 
-    sudo apt-get install libevent-dev libboost-dev
+    sudo apt-get install libssl-dev libevent-dev libboost-system-dev libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev
 
-SQLite is required for the descriptor wallet:
+BerkeleyDB is required for the wallet.
+
+Ubuntu and Debian have their own `libdb-dev` and `libdb++-dev` packages, but these will install
+BerkeleyDB 5.1 or later. This will break binary wallet compatibility with the distributed executables, which
+are based on BerkeleyDB 4.8. If you do not care about wallet compatibility,
+pass `--with-incompatible-bdb` to configure.
+
+Otherwise, you can build from self-compiled `depends` (see above).
+
+    wget http://download.oracle.com/berkeley-db/db-4.8.30.zip
+    unzip db-4.8.30.zip
+
+Line 147, replace __atomic_compare_exchange((p), (o), (n)) with __atomic_compare_exchange_db((p), (o), (n))
+
+Line 179, replace static inline int __atomic_compare_exchange( with static inline int __atomic_compare_exchange_db(
+        
+    cd db-4.8.30
+    cd build_unix/
+    ../dist/configure --prefix=/usr/local --enable-cxx
+    make
+    make install
+
+
+
+    
+SQLite is required for the wallet:
 
     sudo apt install libsqlite3-dev
 
-Berkeley DB is required for the legacy wallet. Ubuntu and Debian have their own `libdb-dev` and `libdb++-dev` packages,
-but these will install Berkeley DB 5.1 or later. This will break binary wallet compatibility with the distributed
-executables, which are based on BerkeleyDB 4.8. If you do not care about wallet compatibility, pass
-`--with-incompatible-bdb` to configure. Otherwise, you can build Berkeley DB [yourself](#berkeley-db).
+To build Bitcoin Core without wallet, see [*Disable-wallet mode*](/doc/build-unix.md#disable-wallet-mode)
 
-To build Bitcoin Core without wallet, see [*Disable-wallet mode*](#disable-wallet-mode)
 
-Optional port mapping libraries (see: `--with-miniupnpc`, `--enable-upnp-default`, and `--with-natpmp`, `--enable-natpmp-default`):
+Optional (see `--with-miniupnpc` and `--enable-upnp-default`):
 
-    sudo apt install libminiupnpc-dev libnatpmp-dev
+    sudo apt-get install libminiupnpc-dev
 
 ZMQ dependencies (provides ZMQ API):
 
     sudo apt-get install libzmq3-dev
-
-User-Space, Statically Defined Tracing (USDT) dependencies:
-
-    sudo apt install systemtap-sdt-dev
 
 GUI dependencies:
 
@@ -116,10 +133,6 @@ To build without GUI pass `--without-gui`.
 To build with Qt 5 you need the following:
 
     sudo apt-get install libqt5gui5 libqt5core5a libqt5dbus5 qttools5-dev qttools5-dev-tools
-
-Additionally, to support Wayland protocol for modern desktop environments:
-
-    sudo apt install qtwayland5
 
 libqrencode (optional) can be installed with:
 
@@ -135,93 +148,50 @@ built by default.
 
 Build requirements:
 
-    sudo dnf install gcc-c++ libtool make autoconf automake python3
+    sudo dnf install gcc-c++ libtool make autoconf automake libevent-devel boost-devel libdb4-devel libdb4-cxx-devel python3
 
-Now, you can either build from self-compiled [depends](/depends/README.md) or install the required dependencies:
+Optional (see `--with-miniupnpc` and `--enable-upnp-default`):
 
-    sudo dnf install libevent-devel boost-devel
-
-SQLite is required for the descriptor wallet:
-
-    sudo dnf install sqlite-devel
-
-Berkeley DB is required for the legacy wallet:
-
-    sudo dnf install libdb4-devel libdb4-cxx-devel
-
-Newer Fedora releases, since Fedora 33, have only `libdb-devel` and `libdb-cxx-devel` packages, but these will install
-Berkeley DB 5.3 or later. This will break binary wallet compatibility with the distributed executables, which
-are based on Berkeley DB 4.8. If you do not care about wallet compatibility,
-pass `--with-incompatible-bdb` to configure. Otherwise, you can build Berkeley DB [yourself](#berkeley-db).
-
-To build Bitcoin Core without wallet, see [*Disable-wallet mode*](#disable-wallet-mode)
-
-Optional port mapping libraries (see: `--with-miniupnpc`, `--enable-upnp-default`, and `--with-natpmp`, `--enable-natpmp-default`):
-
-    sudo dnf install miniupnpc-devel libnatpmp-devel
+    sudo dnf install miniupnpc-devel
 
 ZMQ dependencies (provides ZMQ API):
 
     sudo dnf install zeromq-devel
 
-User-Space, Statically Defined Tracing (USDT) dependencies:
-
-    sudo dnf install systemtap
-
-GUI dependencies:
-
-If you want to build bitcoin-qt, make sure that the required packages for Qt development
-are installed. Qt 5 is necessary to build the GUI.
-To build without GUI pass `--without-gui`.
-
 To build with Qt 5 you need the following:
 
     sudo dnf install qt5-qttools-devel qt5-qtbase-devel
-
-Additionally, to support Wayland protocol for modern desktop environments:
-
-    sudo dnf install qt5-qtwayland
 
 libqrencode (optional) can be installed with:
 
     sudo dnf install qrencode-devel
 
-Once these are installed, they will be found by configure and a bitcoin-qt executable will be
-built by default.
+SQLite can be installed with:
+
+    sudo dnf install sqlite-devel
 
 Notes
 -----
 The release is built with GCC and then "strip bitcoind" to strip the debug
 symbols, which reduces the executable size by about 90%.
 
+
 miniupnpc
 ---------
 
 [miniupnpc](https://miniupnp.tuxfamily.org) may be used for UPnP port mapping.  It can be downloaded from [here](
 https://miniupnp.tuxfamily.org/files/).  UPnP support is compiled in and
-turned off by default.  See the configure options for UPnP behavior desired:
+turned off by default.  See the configure options for upnp behavior desired:
 
-    --without-miniupnpc      No UPnP support, miniupnp not required
-    --disable-upnp-default   (the default) UPnP support turned off by default at runtime
-    --enable-upnp-default    UPnP support turned on by default at runtime
+	--without-miniupnpc      No UPnP support miniupnp not required
+	--disable-upnp-default   (the default) UPnP support turned off by default at runtime
+	--enable-upnp-default    UPnP support turned on by default at runtime
 
-libnatpmp
----------
-
-[libnatpmp](https://miniupnp.tuxfamily.org/libnatpmp.html) may be used for NAT-PMP port mapping. It can be downloaded
-from [here](https://miniupnp.tuxfamily.org/files/). NAT-PMP support is compiled in and
-turned off by default. See the configure options for NAT-PMP behavior desired:
-
-    --without-natpmp          No NAT-PMP support, libnatpmp not required
-    --disable-natpmp-default  (the default) NAT-PMP support turned off by default at runtime
-    --enable-natpmp-default   NAT-PMP support turned on by default at runtime
 
 Berkeley DB
 -----------
-
-The legacy wallet uses Berkeley DB. To ensure backwards compatibility it is
-recommended to use Berkeley DB 4.8. If you have to build it yourself, you can
-use [the installation script included in contrib/](/contrib/install_db4.sh)
+It is recommended to use Berkeley DB 4.8. If you have to build it yourself,
+you can use [the installation script included in contrib/](/contrib/install_db4.sh)
 like so:
 
 ```shell
@@ -230,9 +200,16 @@ like so:
 
 from the root of the repository.
 
-Otherwise, you can build Bitcoin Core from self-compiled [depends](/depends/README.md).
+**Note**: You only need Berkeley DB if the wallet is enabled (see [*Disable-wallet mode*](/doc/build-unix.md#disable-wallet-mode)).
 
-**Note**: You only need Berkeley DB if the wallet is enabled (see [*Disable-wallet mode*](#disable-wallet-mode)).
+Boost
+-----
+If you need to build Boost yourself:
+
+	sudo su
+	./bootstrap.sh
+	./bjam install
+
 
 Security
 --------
@@ -242,8 +219,8 @@ This can be disabled with:
 
 Hardening Flags:
 
-    ./configure --enable-hardening
-    ./configure --disable-hardening
+	./configure --enable-hardening
+	./configure --disable-hardening
 
 
 Hardening enables the following features:
@@ -258,7 +235,7 @@ Hardening enables the following features:
 
     To test that you have built PIE executable, install scanelf, part of paxutils, and use:
 
-        scanelf -e ./bitcoin
+    	scanelf -e ./bitcoin
 
     The output should contain:
 
@@ -275,8 +252,8 @@ Hardening enables the following features:
     `scanelf -e ./bitcoin`
 
     The output should contain:
-    STK/REL/PTL
-    RW- R-- RW-
+	STK/REL/PTL
+	RW- R-- RW-
 
     The STK RW- means that the stack is readable and writeable but not executable.
 
@@ -312,7 +289,7 @@ This example lists the steps necessary to setup and build a command line only, n
 Note:
 Enabling wallet support requires either compiling against a Berkeley DB newer than 4.8 (package `db`) using `--with-incompatible-bdb`,
 or building and depending on a local version of Berkeley DB 4.8. The readily available Arch Linux packages are currently built using
-`--with-incompatible-bdb` according to the [PKGBUILD](https://github.com/archlinux/svntogit-community/blob/packages/bitcoin/trunk/PKGBUILD).
+`--with-incompatible-bdb` according to the [PKGBUILD](https://projects.archlinux.org/svntogit/community.git/tree/bitcoin/trunk/PKGBUILD).
 As mentioned above, when maintaining portability of the wallet between the standard Bitcoin Core distributions and independently built
 node software is desired, Berkeley DB 4.8 must be used.
 
@@ -334,8 +311,16 @@ To build executables for ARM:
     make HOST=arm-linux-gnueabihf NO_QT=1
     cd ..
     ./autogen.sh
-    CONFIG_SITE=$PWD/depends/arm-linux-gnueabihf/share/config.site ./configure --enable-reduce-exports LDFLAGS=-static-libstdc++
+    ./configure --prefix=$PWD/depends/arm-linux-gnueabihf --enable-glibc-back-compat --enable-reduce-exports LDFLAGS=-static-libstdc++
     make
 
-
+Portable Linux build
+-------------------
+    cd depends
+    make
+    cd ..
+    ./autogen.sh
+    ./configure --enable-glibc-back-compat --prefix=`pwd`/depends/x86_64-pc-linux-gnu LDFLAGS="-static-libstdc++"
+    make
+    
 For further documentation on the depends system see [README.md](../depends/README.md) in the depends directory.

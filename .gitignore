@@ -1,16 +1,16 @@
 *.tar.gz
-
+.vscode
 *.exe
 *.pdb
 src/bitcoin
-src/bitcoind
-src/bitcoin-cli
-src/bitcoin-gui
-src/bitcoin-node
-src/bitcoin-tx
-src/bitcoin-util
-src/bitcoin-wallet
-src/test/fuzz/fuzz
+src/bitcoin-powd
+src/bitcoin-pow-cli
+src/bitcoin-pow-gui
+src/bitcoin-pow-node
+src/bitcoin-pow-tx
+src/bitcoin-pow-wallet
+src/test/fuzz/*
+!src/test/fuzz/*.*
 src/test/test_bitcoin
 src/qt/test/test_bitcoin-qt
 
@@ -61,7 +61,7 @@ src/qt/bitcoin-qt.includes
 .dirstamp
 .libs
 .*.swp
-*~
+*.*~*
 *.bak
 *.rej
 *.orig
@@ -76,14 +76,12 @@ src/qt/bitcoin-qt.includes
 *.log
 *.trs
 *.dmg
-*.iso
 
 *.json.h
 *.raw.h
 
 # Only ignore unexpected patches
 *.patch
-!contrib/guix/patches/*.patch
 !depends/patches/**/*.patch
 
 #libtool object files
@@ -94,8 +92,9 @@ src/qt/bitcoin-qt.includes
 *.qm
 Makefile
 !depends/Makefile
-src/qt/bitcoin-qt
-Bitcoin-Qt.app
+src/qt/bitcoin-pow-qt
+bitcoin-pow-qt.app
+background.tiff*
 
 # Qt Creator
 Makefile.am.user
@@ -144,9 +143,8 @@ contrib/devtools/split-debug.sh
 db4/
 
 # clang-check
-*.plist
+#*.plist
 
 osx_volname
 dist/
-
-/guix-build-*
+*.background.tiff

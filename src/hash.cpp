@@ -1,9 +1,8 @@
-// Copyright (c) 2013-2021 The Bitcoin Core developers
+// Copyright (c) 2013-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <hash.h>
-#include <span.h>
 #include <crypto/common.h>
 #include <crypto/hmac_sha512.h>
 
@@ -16,7 +15,7 @@ inline uint32_t ROTL32(uint32_t x, int8_t r)
 
 unsigned int MurmurHash3(unsigned int nHashSeed, Span<const unsigned char> vDataToHash)
 {
-    // The following is MurmurHash3 (x86_32), see https://code.google.com/p/smhasher/source/browse/trunk/MurmurHash3.cpp
+    // The following is MurmurHash3 (x86_32), see http://code.google.com/p/smhasher/source/browse/trunk/MurmurHash3.cpp
     uint32_t h1 = nHashSeed;
     const uint32_t c1 = 0xcc9e2d51;
     const uint32_t c2 = 0x1b873593;
@@ -48,10 +47,8 @@ unsigned int MurmurHash3(unsigned int nHashSeed, Span<const unsigned char> vData
     switch (vDataToHash.size() & 3) {
         case 3:
             k1 ^= tail[2] << 16;
-            [[fallthrough]];
         case 2:
             k1 ^= tail[1] << 8;
-            [[fallthrough]];
         case 1:
             k1 ^= tail[0];
             k1 *= c1;
@@ -75,7 +72,10 @@ unsigned int MurmurHash3(unsigned int nHashSeed, Span<const unsigned char> vData
 void BIP32Hash(const ChainCode &chainCode, unsigned int nChild, unsigned char header, const unsigned char data[32], unsigned char output[64])
 {
     unsigned char num[4];
-    WriteBE32(num, nChild);
+    num[0] = (nChild >> 24) & 0xFF;
+    num[1] = (nChild >> 16) & 0xFF;
+    num[2] = (nChild >>  8) & 0xFF;
+    num[3] = (nChild >>  0) & 0xFF;
     CHMAC_SHA512(chainCode.begin(), chainCode.size()).Write(&header, 1).Write(data, 32).Write(num, 4).Finalize(output);
 }
 

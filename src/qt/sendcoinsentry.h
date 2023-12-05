@@ -1,4 +1,4 @@
-// Copyright (c) 2011-2021 The Bitcoin Core developers
+// Copyright (c) 2011-2019 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -30,7 +30,7 @@ class SendCoinsEntry : public QStackedWidget
     Q_OBJECT
 
 public:
-    explicit SendCoinsEntry(const PlatformStyle *platformStyle, QWidget *parent = nullptr);
+    explicit SendCoinsEntry(const PlatformStyle *platformStyle, QWidget *parent = nullptr, bool forDelegation = false);
     ~SendCoinsEntry();
 
     void setModel(WalletModel *model);
@@ -65,18 +65,19 @@ private Q_SLOTS:
     void deleteClicked();
     void useAvailableBalanceClicked();
     void on_payTo_textChanged(const QString &address);
+    void on_ownerAddress_textChanged(const QString &address);
     void on_addressBookButton_clicked();
+    void on_ownerAddressBookButton_clicked();
     void on_pasteButton_clicked();
+    void on_ownerPasteButton_clicked();
     void updateDisplayUnit();
-
-protected:
-    void changeEvent(QEvent* e) override;
 
 private:
     SendCoinsRecipient recipient;
     Ui::SendCoinsEntry *ui;
     WalletModel *model;
     const PlatformStyle *platformStyle;
+    bool forDelegation;
 
     bool updateLabel(const QString &address);
 };

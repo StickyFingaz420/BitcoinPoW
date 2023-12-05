@@ -1,4 +1,4 @@
-// Copyright (c) 2011-2021 The Bitcoin Core developers
+// Copyright (c) 2011-2019 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -18,6 +18,7 @@
 #include <interfaces/wallet.h>
 #include <key_io.h>
 #include <policy/policy.h>
+#include <script/script.h>
 #include <util/system.h>
 #include <validation.h>
 #include <wallet/ismine.h>
@@ -25,27 +26,26 @@
 #include <stdint.h>
 #include <string>
 
-#include <QLatin1String>
-
-using wallet::ISMINE_ALL;
-using wallet::ISMINE_SPENDABLE;
-using wallet::ISMINE_WATCH_ONLY;
-using wallet::isminetype;
-
 QString TransactionDesc::FormatTxStatus(const interfaces::WalletTx& wtx, const interfaces::WalletTxStatus& status, bool inMempool, int numBlocks)
 {
+    if (!status.is_final)
+    {
+        if (wtx.tx->nLockTime < LOCKTIME_THRESHOLD)
+            return tr("Open for %n more block(s)", "", wtx.tx->nLockTime - numBlocks);
+        else
+            return tr("Open until %1").arg(GUIUtil::dateTimeStr(wtx.tx->nLockTime));
+    }
+    else
     {
         int nDepth = status.depth_in_main_chain;
-        if (nDepth < 0) {
+        if (nDepth < 0)
             return tr("conflicted with a transaction with %1 confirmations").arg(-nDepth);
-        } else if (nDepth == 0) {
-            const QString abandoned{status.is_abandoned ? QLatin1String(", ") + tr("abandoned") : QString()};
-            return tr("0/unconfirmed, %1").arg(inMempool ? tr("in memory pool") : tr("not in memory pool")) + abandoned;
-        } else if (nDepth < 6) {
+        else if (nDepth == 0)
+            return tr("0/unconfirmed, %1").arg((inMempool ? tr("in memory pool") : tr("not in memory pool"))) + (status.is_abandoned ? ", "+tr("abandoned") : "");
+        else if (nDepth < 6)
             return tr("%1/unconfirmed").arg(nDepth);
-        } else {
+        else
             return tr("%1 confirmations").arg(nDepth);
-        }
     }
 }
 
@@ -103,7 +103,7 @@ QString TransactionDesc::toHTML(interfaces::Node& node, interfaces::Wallet& wall
     //
     // From
     //
-    if (wtx.is_coinbase)
+    if (wtx.is_coinbase || wtx.is_coinstake)
     {
         strHTML += "<b>" + tr("Source") + ":</b> " + tr("Generated") + "<br>";
     }
@@ -157,7 +157,7 @@ QString TransactionDesc::toHTML(interfaces::Node& node, interfaces::Wallet& wall
     //
     // Amount
     //
-    if (wtx.is_coinbase && nCredit == 0)
+    if ((wtx.is_coinbase || wtx.is_coinstake) && nCredit == 0)
     {
         //
         // Coinbase
@@ -174,10 +174,27 @@ QString TransactionDesc::toHTML(interfaces::Node& node, interfaces::Wallet& wall
     }
     else if (nNet > 0)
     {
-        //
-        // Credit
-        //
-        strHTML += "<b>" + tr("Credit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, nNet) + "<br>";
+        if (wtx.is_coinstake)
+        {
+            //
+            // Credit
+            //
+            strHTML += "<b>" + tr("Credit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, nCredit);
+            if (status.blocks_to_maturity > 0)
+                strHTML += " (" + tr("matures in %n more block(s)", "", status.blocks_to_maturity) + ")";
+            strHTML += "<br>";
+            //
+            // Debit
+            //
+            strHTML += "<b>" + tr("Debit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, -nDebit) + "<br>";
+        }
+        else
+        {
+            //
+            // Credit
+            //
+            strHTML += "<b>" + tr("Credit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, nNet) + "<br>";
+        }
     }
     else
     {

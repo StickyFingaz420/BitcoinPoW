@@ -1,5 +1,5 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2020 The Bitcoin Core developers
+// Copyright (c) 2009-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -111,9 +111,8 @@ public:
     int GetType() const { return nType; }
     int GetVersion() const { return nVersion; }
 
-    void write(Span<const std::byte> src)
-    {
-        ctx.Write(UCharCast(src.data()), src.size());
+    void write(const char *pch, size_t size) {
+        ctx.Write((const unsigned char*)pch, size);
     }
 
     /** Compute the double-SHA256 hash of all data written to this object.
@@ -163,18 +162,18 @@ private:
 public:
     explicit CHashVerifier(Source* source_) : CHashWriter(source_->GetType(), source_->GetVersion()), source(source_) {}
 
-    void read(Span<std::byte> dst)
+    void read(char* pch, size_t nSize)
     {
-        source->read(dst);
-        this->write(dst);
+        source->read(pch, nSize);
+        this->write(pch, nSize);
     }
 
     void ignore(size_t nSize)
     {
-        std::byte data[1024];
+        char data[1024];
         while (nSize > 0) {
             size_t now = std::min<size_t>(nSize, 1024);
-            read({data, now});
+            read(data, now);
             nSize -= now;
         }
     }
@@ -188,30 +187,6 @@ public:
     }
 };
 
-/** Writes data to an underlying source stream, while hashing the written data. */
-template <typename Source>
-class HashedSourceWriter : public CHashWriter
-{
-private:
-    Source& m_source;
-
-public:
-    explicit HashedSourceWriter(Source& source LIFETIMEBOUND) : CHashWriter{source.GetType(), source.GetVersion()}, m_source{source} {}
-
-    void write(Span<const std::byte> src)
-    {
-        m_source.write(src);
-        CHashWriter::write(src);
-    }
-
-    template <typename T>
-    HashedSourceWriter& operator<<(const T& obj)
-    {
-        ::Serialize(*this, obj);
-        return *this;
-    }
-};
-
 /** Compute the 256-bit hash of an object's serialization. */
 template<typename T>
 uint256 SerializeHash(const T& obj, int nType=SER_GETHASH, int nVersion=PROTOCOL_VERSION)
@@ -222,7 +197,7 @@ uint256 SerializeHash(const T& obj, int nType=SER_GETHASH, int nVersion=PROTOCOL
 }
 
 /** Single-SHA256 a 32-byte input (represented as uint256). */
-[[nodiscard]] uint256 SHA256Uint256(const uint256& input);
+NODISCARD uint256 SHA256Uint256(const uint256& input);
 
 unsigned int MurmurHash3(unsigned int nHashSeed, Span<const unsigned char> vDataToHash);
 

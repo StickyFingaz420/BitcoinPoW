@@ -7,8 +7,7 @@ clang-format-diff.py
 
 A script to format unified git diffs according to [.clang-format](../../src/.clang-format).
 
-Requires `clang-format`, installed e.g. via `brew install clang-format` on macOS,
-or `sudo apt install clang-format` on Debian/Ubuntu.
+Requires `clang-format`, installed e.g. via `brew install clang-format` on macOS.
 
 For instance, to format the last commit with 0 lines of context,
 the script should be called from the git root folder as follows.
@@ -76,7 +75,7 @@ year rather than two hyphenated years.
 If the file already has a copyright for `The Bitcoin Core developers`, the
 script will exit.
 
-gen-manpages.py
+gen-manpages.sh
 ===============
 
 A small script to automatically create manpages in ../../doc/man by running the release binaries with the -help option.
@@ -87,7 +86,7 @@ repostitory. To use this tool with out-of-tree builds set `BUILDDIR`. For
 example:
 
 ```bash
-BUILDDIR=$PWD/build contrib/devtools/gen-manpages.py
+BUILDDIR=$PWD/build contrib/devtools/gen-manpages.sh
 ```
 
 security-check.py and test-security-check.py
@@ -98,7 +97,7 @@ Perform basic security checks on a series of executables.
 symbol-check.py
 ===============
 
-A script to check that release executables only contain
+A script to check that the executables produced by gitian only contain
 certain symbols and are only linked against allowed libraries.
 
 For Linux this means checking for allowed gcc, glibc and libstdc++ version symbols.
@@ -106,9 +105,9 @@ This makes sure they are still compatible with the minimum supported distributio
 
 For macOS and Windows we check that the executables are only linked against libraries we allow.
 
-Example usage:
+Example usage after a gitian build:
 
-    find ../path/to/executables -type f -executable | xargs python3 contrib/devtools/symbol-check.py
+    find ../gitian-builder/build -type f -executable | xargs python3 contrib/devtools/symbol-check.py
 
 If no errors occur the return value will be 0 and the output will be empty.
 

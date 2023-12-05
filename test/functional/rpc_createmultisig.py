@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-# Copyright (c) 2015-2021 The Bitcoin Core developers
+# Copyright (c) 2015-2019 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test multisig RPCs"""
+import binascii
 import decimal
 import itertools
 import json
 import os
 
-from test_framework.blocktools import COINBASE_MATURITY
 from test_framework.authproxy import JSONRPCException
 from test_framework.descriptors import descsum_create, drop_origins
 from test_framework.key import ECPubKey, ECKey
@@ -45,7 +45,8 @@ class RpcCreateMultiSigTest(BitcoinTestFramework):
         self.check_addmultisigaddress_errors()
 
         self.log.info('Generating blocks ...')
-        self.generate(node0, 149)
+        node0.generate(149)
+        self.sync_all()
 
         self.moved = 0
         for self.nkeys in [3, 5]:
@@ -64,9 +65,9 @@ class RpcCreateMultiSigTest(BitcoinTestFramework):
 
         # decompress pk2
         pk_obj = ECPubKey()
-        pk_obj.set(bytes.fromhex(pk2))
+        pk_obj.set(binascii.unhexlify(pk2))
         pk_obj.compressed = False
-        pk2 = pk_obj.get_bytes().hex()
+        pk2 = binascii.hexlify(pk_obj.get_bytes()).decode()
 
         node0.createwallet(wallet_name='wmulti0', disable_private_keys=True)
         wmulti0 = node0.get_wallet_rpc('wmulti0')
@@ -75,21 +76,13 @@ class RpcCreateMultiSigTest(BitcoinTestFramework):
         for keys in itertools.permutations([pk0, pk1, pk2]):
             # Results should be the same as this legacy one
             legacy_addr = node0.createmultisig(2, keys, 'legacy')['address']
-            result = wmulti0.addmultisigaddress(2, keys, '', 'legacy')
-            assert_equal(legacy_addr, result['address'])
-            assert 'warnings' not in result
+            assert_equal(legacy_addr, wmulti0.addmultisigaddress(2, keys, '', 'legacy')['address'])
 
             # Generate addresses with the segwit types. These should all make legacy addresses
-            err_msg = ["Unable to make chosen address type, please ensure no uncompressed public keys are present."]
-
-            for addr_type in ['bech32', 'p2sh-segwit']:
-                result = wmulti0.createmultisig(nrequired=2, keys=keys, address_type=addr_type)
-                assert_equal(legacy_addr, result['address'])
-                assert_equal(result['warnings'], err_msg)
-
-                result = wmulti0.addmultisigaddress(nrequired=2, keys=keys, address_type=addr_type)
-                assert_equal(legacy_addr, result['address'])
-                assert_equal(result['warnings'], err_msg)
+            assert_equal(legacy_addr, wmulti0.createmultisig(2, keys, 'bech32')['address'])
+            assert_equal(legacy_addr, wmulti0.createmultisig(2, keys, 'p2sh-segwit')['address'])
+            assert_equal(legacy_addr, wmulti0.addmultisigaddress(2, keys, '', 'bech32')['address'])
+            assert_equal(legacy_addr, wmulti0.addmultisigaddress(2, keys, '', 'p2sh-segwit')['address'])
 
         self.log.info('Testing sortedmulti descriptors with BIP 67 test vectors')
         with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data/rpc_bip67.json'), encoding='utf-8') as f:
@@ -103,9 +96,6 @@ class RpcCreateMultiSigTest(BitcoinTestFramework):
             sorted_key_desc = descsum_create('sh(multi(2,{}))'.format(sorted_key_str))
             assert_equal(self.nodes[0].deriveaddresses(sorted_key_desc)[0], t['address'])
 
-        # Check that bech32m is currently not allowed
-        assert_raises_rpc_error(-5, "createmultisig cannot create bech32m multisig addresses", self.nodes[0].createmultisig, 2, self.pub, "bech32m")
-
     def check_addmultisigaddress_errors(self):
         if self.options.descriptors:
             return
@@ -117,13 +107,10 @@ class RpcCreateMultiSigTest(BitcoinTestFramework):
             self.nodes[0].importaddress(a)
         assert_raises_rpc_error(-5, 'no full public key for address', lambda: self.nodes[0].addmultisigaddress(nrequired=1, keys=addresses))
 
-        # Bech32m address type is disallowed for legacy wallets
-        pubs = [self.nodes[1].getaddressinfo(addr)["pubkey"] for addr in addresses]
-        assert_raises_rpc_error(-5, "Bech32m multisig addresses cannot be created with legacy wallets", self.nodes[0].addmultisigaddress, 2, pubs, "", "bech32m")
-
     def checkbalances(self):
         node0, node1, node2 = self.nodes
-        self.generate(node0, COINBASE_MATURITY)
+        node0.generate(100)
+        self.sync_all()
 
         bal0 = node0.getbalance()
         bal1 = node1.getbalance()
@@ -160,7 +147,6 @@ class RpcCreateMultiSigTest(BitcoinTestFramework):
         desc = descsum_create(desc)
 
         msig = node2.createmultisig(self.nsigs, self.pub, self.output_type)
-        assert 'warnings' not in msig
         madd = msig["address"]
         mredeem = msig["redeemScript"]
         assert_equal(desc, msig['descriptor'])
@@ -179,14 +165,14 @@ class RpcCreateMultiSigTest(BitcoinTestFramework):
         txid = node0.sendtoaddress(madd, 40)
 
         tx = node0.getrawtransaction(txid, True)
-        vout = [v["n"] for v in tx["vout"] if madd == v["scriptPubKey"]["address"]]
+        vout = [v["n"] for v in tx["vout"] if madd in v["scriptPubKey"].get("addresses", [])]
         assert len(vout) == 1
         vout = vout[0]
         scriptPubKey = tx["vout"][vout]["scriptPubKey"]["hex"]
         value = tx["vout"][vout]["value"]
         prevtxs = [{"txid": txid, "vout": vout, "scriptPubKey": scriptPubKey, "redeemScript": mredeem, "amount": value}]
 
-        self.generate(node0, 1)
+        node0.generate(1)
 
         outval = value - decimal.Decimal("0.00001000")
         rawtx = node2.createrawtransaction([{"txid": txid, "vout": vout}], [{self.final: outval}])
@@ -222,7 +208,7 @@ class RpcCreateMultiSigTest(BitcoinTestFramework):
 
         self.moved += outval
         tx = node0.sendrawtransaction(rawtx3["hex"], 0)
-        blk = self.generate(node0, 1)[0]
+        blk = node0.generate(1)[0]
         assert tx in node0.getblock(blk)["tx"]
 
         txinfo = node0.getrawtransaction(tx, True, blk)

@@ -1,11 +1,11 @@
-// Copyright (c) 2011-2021 The Bitcoin Core developers
+// Copyright (c) 2011-2020 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #ifndef BITCOIN_QT_BITCOINUNITS_H
 #define BITCOIN_QT_BITCOINUNITS_H
 
-#include <consensus/amount.h>
+#include <amount.h>
 
 #include <QAbstractListModel>
 #include <QString>
@@ -40,9 +40,9 @@ public:
      */
     enum Unit
     {
-        BTC,
-        mBTC,
-        uBTC,
+        BTCW,
+        mBTCW,
+        uBTCW,
         SAT
     };
 
@@ -83,6 +83,10 @@ public:
     static bool parse(int unit, const QString &value, CAmount *val_out);
     //! Gets title for amount column including current display unit if optionsModel reference available */
     static QString getAmountColumnTitle(int unit);
+    //! Gets title for delegated column including current display unit if optionsModel reference available */
+    static QString getDelegatedColumnTitle(int unit);
+    //! Format integer number as string (with and without separator)
+    static QString formatInt(const int64_t& number, bool plussign=false, SeparatorStyle separators=SeparatorStyle::STANDARD);
     ///@}
 
     //! @name AbstractListModel implementation
