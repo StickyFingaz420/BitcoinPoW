@@ -1,9 +1,11 @@
-Bitcoin PoW Core integration/staging tree
+Bitcoin PoW - White paper
 =====================================
 
 https://www.bitcoin-pow.org
 
 https://www.twitter.com/bitcoin_pow
+
+https://t.me/BitcoinPoWPoT
 
 What is Bitcoin PoW?
 ----------------
@@ -76,6 +78,7 @@ Here are the benefits:
 ```
 1 - Prevents pools from forming. Very decentralized mining naturally happens.
 2 - All users will naturally solo mine.
+3 - Larger coin amounts can be sent to cold storage because they have negligible contribution mining a block.
 ```
 
 
@@ -110,7 +113,7 @@ block in which the payment goes directly to the user. Would a user want to be ho
 
 Pools can't logically form using PoW/PoT, thus BitcoinPoW will naturally have all node operators solo mining. This will create a huge decentralized mining network.
 
-Bitcoin miners never have to sign information, thus BTC can form large centralized mining pools. All the signing happens using the pool operator's wallet. BitcoinPoW is the
+Bitcoin pool miners never have to sign information, thus BTC can form large centralized mining pools. All the signing happens using the pool operator's wallet. BitcoinPoW is the
 solution to the problem.
 
 
@@ -263,6 +266,37 @@ Steps
 When your wallet starts getting loaded around 40%, you might want to create a new wallet with a new wallet.dat and generate
 a new BTC address in the python script and create transactions again.
 
+Alternate method to create many transactions
+-------
+Creating transactions can be performed using the BitcoinPoW console. 
+Using your SOURCE wallet, Go to 
+```
+Window->Console
+```
+
+At the bottom of the GUI you can paste 100 transaction commands at once:
+```
+sendtoaddress "1F5p7KsHzeU2LjAboH5NCg5FTHvQHfxbTt" 0.00001
+sendtoaddress "1F5p7KsHzeU2LjAboH5NCg5FTHvQHfxbTt" 0.00001
+sendtoaddress "1F5p7KsHzeU2LjAboH5NCg5FTHvQHfxbTt" 0.00001
+sendtoaddress "1F5p7KsHzeU2LjAboH5NCg5FTHvQHfxbTt" 0.00001
+sendtoaddress "1F5p7KsHzeU2LjAboH5NCg5FTHvQHfxbTt" 0.00001
+sendtoaddress "1F5p7KsHzeU2LjAboH5NCg5FTHvQHfxbTt" 0.00001
+...
+```
+Make sure to use your SINK wallet's address above. Create a list of 100 sendtoaddress commands (similar to above) and paste them into the console. 
+
+NOTE:
+```
+After sending many transactions, it is possible that some of the generated transactions never made it into the mem pool 
+and will result with your balance not being correct. To fix this(WAIT for the next block confirmation to make your life 
+easier) then go to the Transactions page and look for any row that starts with a ? (Question mark). Right click on the row and 
+select 'Abandon transaction'. If 'Abandon transaction' is not allowed to be selected, that transaction is good and you 
+can go check the other ?(Question marks) to see if they can be abandoned. Once you have looked at all ? (Question mark)
+rows, your wallet balance should be correct.
+
+The Python script above does all this dirty work for us. But, this is still a valid way to create transactions.
+```
 
 CPU or ASIC?
 -------
@@ -275,7 +309,13 @@ solo mining decentralization.
 
 Free coins
 -------
-If you would like to start mining you can get coins from an exchange or find some free satoshis on twitter: @bitcoin_pow
+If you would like to create transactions to start mining you can get free coins here:
+```
+Twitter (X): https://twitter.com/bitcoin_pow
+Telegram:    https://t.me/BitcoinPoWPoT
+```
+
+
 
 
 For more information see https://www.bitcoin-pow.org
