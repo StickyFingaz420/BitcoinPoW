@@ -67,7 +67,7 @@ bool CheckStakeKernelHash(CBlockIndex* pindexPrev, unsigned int nBits, uint32_t 
     bnTarget.SetCompact(nBits);
 
     targetProofOfStake = ArithToUint256(bnTarget);
-    bnTarget = 1000000*bnTarget;
+    bnTarget = POW_POT_DIFF_HELPER*bnTarget;
  
 
     uint256 nStakeModifier = pindexPrev->nStakeModifier;

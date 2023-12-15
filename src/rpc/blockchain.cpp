@@ -104,6 +104,12 @@ double GetDifficulty(const CBlockIndex* blockindex)
         nShift--;
     }
 
+    // undo affects of PoW to PoS hash rate multiplier.
+    if (blockindex->IsProofOfStake())
+    {
+        dDiff /= POW_POT_DIFF_HELPER;
+    }
+
     return dDiff;
 }
 

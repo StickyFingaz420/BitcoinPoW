@@ -125,7 +125,7 @@ public:
         consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].min_activation_height = 0; // Dec 2023
 
         // The best chain should have at least this much work.
-        consensus.nMinimumChainWork = uint256S("0x0000000000000000000000000000000000000000000000000000000000000001");
+        consensus.nMinimumChainWork = uint256S("0x000000000000000000000000000000000000000000000000037262a83eeaf11d");
 
         // By default assume that the signatures in ancestors of this block are valid.
         consensus.defaultAssumeValid = uint256S("00000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
@@ -215,16 +215,17 @@ public:
         checkpointData = {
             {
                 { 10, uint256S("0x000000000000a6616dfa3698c990302319934e577f3979f91f3d09a0c4de7bb8")},
-                // PoW via Collapsed PoS start
+                // PoW - PoT start
                 { 11, uint256S("0xd8cb951c9415ccd3602093f79457d428a6da00cd3f36ad4cde525d62cff800ce")},
+                { 1680, uint256S("0x52f2b5a19992773d7b9d2710190073fdc5eecf70b5d9e8c0181a1437bdec9123")},                
             }
         };
 
         chainTxData = ChainTxData{
             // Data from RPC: getchaintxstats
-            /* nTime    */ 1701743685,
-            /* nTxCount */ 89,
-            /* dTxRate  */ 0.00670623602867494,
+            /* nTime    */ 1702593362,
+            /* nTxCount */ 2127411,
+            /* dTxRate  */ 2.462327383756393,
         };
     }
 };

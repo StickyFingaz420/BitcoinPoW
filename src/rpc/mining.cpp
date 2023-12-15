@@ -51,40 +51,25 @@
  * If 'height' is nonnegative, compute the estimate at the time when a given block was found.
  */
 static UniValue GetNetworkHashPS(int lookup, int height) {
-    CBlockIndex *pb = ::ChainActive().Tip();
 
-    if (height >= 0 && height < ::ChainActive().Height())
-        pb = ::ChainActive()[height];
+    // hashrate = difficulty * 7158388.055
+    static const double conversion = 7158388.055;
 
-    if (pb == nullptr || !pb->nHeight)
-        return 0;
-
-    // If lookup is -1, then use blocks since last difficulty change.
     if (lookup <= 0)
-        lookup = pb->nHeight % Params().GetConsensus().DifficultyAdjustmentInterval() + 1;
+        lookup = 1;
 
-    // If lookup is larger than chain, then set it to chain length.
-    if (lookup > pb->nHeight)
-        lookup = pb->nHeight;
+    // If lookup or height is -1, then use current difficulty.
+    if (height <= 0)
+        height = (int)::ChainActive().Height();
 
-    CBlockIndex *pb0 = pb;
-    int64_t minTime = pb0->GetBlockTime();
-    int64_t maxTime = minTime;
-    for (int i = 0; i < lookup; i++) {
-        pb0 = pb0->pprev;
-        int64_t time = pb0->GetBlockTime();
-        minTime = std::min(time, minTime);
-        maxTime = std::max(time, maxTime);
+    double accum = 0.0;
+    int i;
+    for (i = 0; i < lookup; i++) {
+        if ((height - i) >= 0)
+            accum += (double)GetDifficulty(GetLastBlockIndex(::ChainActive()[height - i], true));
     }
-
-    // In case there's a situation where minTime == maxTime, we don't want a divide by zero exception.
-    if (minTime == maxTime)
-        return 0;
-
-    arith_uint256 workDiff = pb->nChainWork - pb0->nChainWork;
-    int64_t timeDiff = maxTime - minTime;
-
-    return workDiff.getdouble() / timeDiff;
+    // i is greater than 0
+    return conversion*accum/i;
 }
 
 static RPCHelpMan getnetworkhashps()
