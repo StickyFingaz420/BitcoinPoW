@@ -243,6 +243,7 @@ rpcport=9332
 server=1
 listen=1
 addresstype=legacy
+walletrbf=1
 ```
 
 
