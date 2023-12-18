@@ -25,6 +25,7 @@ class uint256;
 // To decrease granularity of timestamp
 // Supposed to be 2^n-1
 static const uint32_t STAKE_TIMESTAMP_MASK = 0; // CPU can hash as fast as possible
+static const uint32_t POW_POT_DIFF_HELPER = 1000000; // help the transition to PoW/PoT not take a year.
 
 struct CStakeCache{
     CStakeCache(uint32_t blockFromTime_, CAmount amount_) : blockFromTime(blockFromTime_), amount(amount_){
