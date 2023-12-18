@@ -218,15 +218,15 @@ public:
                 // PoW - PoT start
                 { 11, uint256S("0xd8cb951c9415ccd3602093f79457d428a6da00cd3f36ad4cde525d62cff800ce")},
                 { 1680, uint256S("0x52f2b5a19992773d7b9d2710190073fdc5eecf70b5d9e8c0181a1437bdec9123")},
-                { 1950, uint256S("0xeb5022132ee9ac9302187366a9a64d47b943e5dfee21d81bcd068d66b2796674")},
+                { 2240, uint256S("0xb93b591092bf48ba55aae9a10ee23f25372a0c08e5e0b409ec0be7ef30b2de0c")},
             }
         };
 
         chainTxData = ChainTxData{
             // Data from RPC: getchaintxstats
-            /* nTime    */ 1702751589,
-            /* nTxCount */ 3302054,
-            /* dTxRate  */ 3.229971946051906,
+            /* nTime    */ 1702925297,
+            /* nTxCount */ 4281804,
+            /* dTxRate  */ 3.585837547850366,
         };
     }
 };
