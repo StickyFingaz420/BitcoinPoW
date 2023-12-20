@@ -39,7 +39,7 @@
 #include <wallet/wallet.h>
 #include <wallet/walletdb.h>
 #include <wallet/walletutil.h>
-
+#include <util/time.h>
 #include <stdint.h>
 
 #include <univalue.h>
@@ -530,6 +530,187 @@ static RPCHelpMan sendtoaddress()
     const bool verbose{request.params[10].isNull() ? false : request.params[10].get_bool()};
 
     return SendMoney(pwallet, coin_control, recipients, mapValue, verbose);
+},
+    };
+}
+
+static RPCHelpMan tx()
+{
+    return RPCHelpMan{"tx",
+                "\nSend transactions to an address for a BTCW miner to mine with." +
+        HELP_REQUIRING_PASSPHRASE,
+                {
+                    {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The bitcoin address to send to."},
+                    {"amount", RPCArg::Type::AMOUNT, RPCArg::Optional::NO, "The amount in " + CURRENCY_UNIT + " to send. eg 0.00001"},
+                    {"fee_rate", RPCArg::Type::AMOUNT, /* default */ "not set, fall back to wallet fee estimation", "Specify a fee rate in " + CURRENCY_ATOM + "/vB."},                    
+                    {"num_sends", RPCArg::Type::NUM, /* default */ "-1", "Confirmation target in blocks"},
+                    {"subtractfeefromamount", RPCArg::Type::BOOL, /* default */ "false", "The fee will be deducted from the amount being sent.\n"
+                                         "The recipient will receive less bitcoins than you enter in the amount field."},
+                    {"conf_target", RPCArg::Type::NUM, /* default */ "wallet -txconfirmtarget", "Confirmation target in blocks"},
+                    {"estimate_mode", RPCArg::Type::STR, /* default */ "unset", std::string() + "The fee estimate mode, must be one of (case insensitive):\n"
+            "       \"" + FeeModes("\"\n\"") + "\""},
+                    {"avoid_reuse", RPCArg::Type::BOOL, /* default */ "true", "(only available if avoid_reuse wallet flag is set) Avoid spending from dirty addresses; addresses are considered\n"
+                                         "dirty if they have previously been used in a transaction."},
+                    {"verbose", RPCArg::Type::BOOL, /* default */ "false", "If true, return extra information about the transaction."},
+                },
+                {
+                    RPCResult{"if verbose is not set or set to false",
+                        RPCResult::Type::STR_HEX, "txid", "The transaction id."
+                    },
+                    RPCResult{"if verbose is set to true",
+                        RPCResult::Type::OBJ, "", "",
+                        {
+                            {RPCResult::Type::STR_HEX, "txid", "The transaction id."},
+                            {RPCResult::Type::STR, "fee reason", "The transaction fee reason."}
+                        },
+                    },
+                },
+                RPCExamples{
+                    "\nSend BTCW transactions forever with amount of 0.00001, a fee of 700 satoshi/vB, and RBF enabled\n"
+                    + HelpExampleCli("tx", "\"" + EXAMPLE_ADDRESS[0] + "\" 0.00001" + "\" 700") +
+                    "\nStop sending BTCW transactions\n"
+                    + HelpExampleCli("tx", "\"" + EXAMPLE_ADDRESS[0] + "\" 0.00001" + "\" 700" + "\" 0")
+                },
+        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
+{
+    static std::atomic<bool> send_tx_thread_running(false);
+    static std::atomic<bool> signal_tx_thread_stop(false);
+
+    try
+    {
+        // wait for previous command to cleanup and exit
+        while ( send_tx_thread_running )
+        {
+            signal_tx_thread_stop = true;
+            UninterruptibleSleep(std::chrono::seconds{3});
+        }
+         signal_tx_thread_stop = false;
+
+        std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+        if (!wallet) return NullUniValue;
+        CWallet* const pwallet = wallet.get();
+
+        // Make sure the results are valid at least up to the most recent block
+        // the user could have gotten from another RPC command prior to now
+        pwallet->BlockUntilSyncedToCurrentChain();
+
+
+        bool fSubtractFeeFromAmount = false;
+        if (!request.params[4].isNull()) {
+            fSubtractFeeFromAmount = request.params[4].get_bool();
+        }
+
+        CCoinControl coin_control;
+        coin_control.m_signal_bip125_rbf = true; // force rbf
+
+        coin_control.m_avoid_address_reuse = GetAvoidReuseFlag(pwallet, request.params[7]);
+        // We also enable partial spend avoidance if reuse avoidance is set.
+        coin_control.m_avoid_partial_spends |= coin_control.m_avoid_address_reuse;
+
+        SetFeeEstimateMode(*pwallet, coin_control, /* conf_target */ request.params[5], /* estimate_mode */ request.params[6], /* fee_rate */ request.params[2], /* override_min_fee */ false);
+
+        // No Wallet comments
+        mapValue_t mapValue;
+        mapValue["comment"] = "";
+        mapValue["to"] = "";
+
+        UniValue address_amounts(UniValue::VOBJ);
+        const std::string address = request.params[0].get_str();
+        address_amounts.pushKV(address, request.params[1]);
+        UniValue subtractFeeFromAmount(UniValue::VARR);
+        if (fSubtractFeeFromAmount) {
+            subtractFeeFromAmount.push_back(address);
+        }
+
+        int64_t num_sends = 0;
+        if (!request.params[3].isNull()) {
+            num_sends = request.params[3].get_int();
+        }
+        
+        if (num_sends < 0 || request.params[3].isNull() )
+        {
+            // // default to run forever
+            num_sends = std::numeric_limits<int64_t>::max();
+        }
+
+        coin_control.m_signal_bip125_rbf = true; // force rbf
+        std::thread send_tx_thread([=]() {
+
+                try
+                {
+                    send_tx_thread_running = true;
+
+                    std::vector<CRecipient> recipients;
+                    ParseRecipients(address_amounts, subtractFeeFromAmount, recipients);
+                    const bool verbose{request.params[8].isNull() ? false : request.params[8].get_bool()};
+                    int height = 1;
+                    
+                    EnsureWalletIsUnlocked(pwallet);
+
+                    int n = 1;
+                    while ((n<=num_sends) && (false==signal_tx_thread_stop))
+                    {
+                        UninterruptibleSleep(std::chrono::milliseconds{100});
+                        UniValue v;
+                        {
+                            LOCK(pwallet->cs_wallet);
+                            v = SendMoney(pwallet, coin_control, recipients, mapValue, verbose);
+                        }
+                        
+                        std::string txid = v.get_str();
+                        uint256 hash(uint256S(txid.c_str()));
+
+                        if (!pwallet->mapWallet.count(hash)) {
+                            // Invalid or non-wallet transaction id
+                            break;
+                        }
+                        bool is_abandoned = false;                
+                        {
+                            LOCK(pwallet->cs_wallet);
+                            is_abandoned = pwallet->AbandonTransaction(hash);
+                            height = pwallet->GetLastBlockHeight();
+                        }
+                        
+                        while (is_abandoned && (false==signal_tx_thread_stop))
+                        {
+                            //"Transaction eligible for abandonment" -- just keep waiting
+                            UninterruptibleSleep(std::chrono::seconds{5});
+                            {
+                                LOCK(pwallet->cs_wallet);
+                                if (height != pwallet->GetLastBlockHeight())
+                                {
+                                    // new block found! Try again.
+                                    break;
+                                }
+                            }                    
+                        }
+                        n++;
+                    }
+
+                    // done.
+                    send_tx_thread_running = false;
+                }
+                catch(const std::exception& e)
+                {
+                    // done - bad happened
+                    send_tx_thread_running = false;
+                }
+            }
+        );
+
+        send_tx_thread.detach();
+
+    }
+    catch(const std::exception& e)
+    {
+        // stop thread and reset, something bad happened.
+        signal_tx_thread_stop = true;
+        // send back command initiated
+        return NullUniValue;        
+    }
+
+    // send back command initiated
+    return NullUniValue;
 },
     };
 }
@@ -4706,6 +4887,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "setwalletflag",                    &setwalletflag,                 {"flag","value"} },
     { "wallet",             "signmessage",                      &signmessage,                   {"address","message"} },
     { "wallet",             "signrawtransactionwithwallet",     &signrawtransactionwithwallet,  {"hexstring","prevtxs","sighashtype"} },
+    { "wallet",             "tx",                               &tx,                            {"address","amount","fee_rate","num_sends","subtractfeefromamount","conf_target","estimate_mode","avoid_reuse","verbose"} },
     { "wallet",             "unloadwallet",                     &unloadwallet,                  {"wallet_name", "load_on_startup"} },
     { "wallet",             "upgradewallet",                    &upgradewallet,                 {"version"} },
     { "wallet",             "walletcreatefundedpsbt",           &walletcreatefundedpsbt,        {"inputs","outputs","locktime","options","bip32derivs"} },
