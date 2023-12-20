@@ -337,7 +337,7 @@
              </sizepolicy>
             </property>
             <property name="text">
-             <string>Network weight:</string>
+             <string> </string>
             </property>
             <property name="alignment">
              <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
@@ -347,7 +347,7 @@
           <item>
            <widget class="QLabel" name="labelWeight">
             <property name="text">
-             <string>0</string>
+             <string></string>
             </property>
             <property name="alignment">
              <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
@@ -389,7 +389,7 @@
              </sizepolicy>
             </property>
             <property name="text">
-             <string>Expected annualized ROI:</string>
+             <string> </string>
             </property>
             <property name="alignment">
              <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
@@ -399,7 +399,7 @@
           <item>
            <widget class="QLabel" name="labelROI">
             <property name="text">
-             <string>7.9 %</string>
+             <string></string>
             </property>
             <property name="alignment">
              <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
