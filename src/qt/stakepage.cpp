@@ -147,12 +147,12 @@ void StakePage::updateSubsidy()
 
 void StakePage::updateNetworkWeight()
 {
-    ui->labelWeight->setText(BitcoinUnits::formatInt(m_networkWeight / COIN));
+    //ui->labelWeight->setText(BitcoinUnits::formatInt(m_networkWeight / COIN));
 }
 
 void StakePage::updateAnnualROI()
 {
-    ui->labelROI->setText(QString::number(m_expectedAnnualROI, 'f', 2) + "%");
+    //ui->labelROI->setText(QString::number(m_expectedAnnualROI, 'f', 2) + "%");
 }
 
 void StakePage::updateEncryptionStatus()

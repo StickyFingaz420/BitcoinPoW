@@ -567,9 +567,9 @@ static RPCHelpMan tx()
                 },
                 RPCExamples{
                     "\nSend BTCW transactions forever with amount of 0.00001, a fee of 700 satoshi/vB, and RBF enabled\n"
-                    + HelpExampleCli("tx", "\"" + EXAMPLE_ADDRESS[0] + "\" 0.00001" + "\" 700") +
+                    + HelpExampleCli("tx", "\"" + EXAMPLE_ADDRESS[0] + "\" 0.00001  700") +
                     "\nStop sending BTCW transactions\n"
-                    + HelpExampleCli("tx", "\"" + EXAMPLE_ADDRESS[0] + "\" 0.00001" + "\" 700" + "\" 0")
+                    + HelpExampleCli("tx", "\"" + EXAMPLE_ADDRESS[0] + "\" 0.00001  700  0")
                 },
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
 {
@@ -608,6 +608,14 @@ static RPCHelpMan tx()
         coin_control.m_avoid_partial_spends |= coin_control.m_avoid_address_reuse;
 
         SetFeeEstimateMode(*pwallet, coin_control, /* conf_target */ request.params[5], /* estimate_mode */ request.params[6], /* fee_rate */ request.params[2], /* override_min_fee */ false);
+
+        auto amnt = request.params[1].get_real();
+
+        if (amnt < 0.00001)
+        {
+            UniValue warn = "Send amount less than 0.00001, failed to send.";
+            return warn;
+        }
 
         // No Wallet comments
         mapValue_t mapValue;

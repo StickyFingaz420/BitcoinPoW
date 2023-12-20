@@ -265,7 +265,7 @@ void BitcoinGUI::createActions()
     tabGroup->addAction(overviewAction);
 
     sendCoinsAction = new QAction(platformStyle->SingleColorIcon(":/icons/send"), tr("&Send"), this);
-    sendCoinsAction->setStatusTip(tr("Send coins to a Bitcoin address"));
+    sendCoinsAction->setStatusTip(tr("Send coins to a BitcoinPoW address"));
     sendCoinsAction->setToolTip(sendCoinsAction->statusTip());
     sendCoinsAction->setCheckable(true);
     sendCoinsAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_2));
@@ -287,7 +287,7 @@ void BitcoinGUI::createActions()
     receiveCoinsMenuAction->setToolTip(receiveCoinsMenuAction->statusTip());
 
     stakeAction = new QAction(platformStyle->SingleColorIcon(":/icons/tx_mined"), tr("&Miner"), this);
-    stakeAction->setStatusTip(tr("Show stake of wallet"));
+    stakeAction->setStatusTip(tr("Show mining"));
     stakeAction->setToolTip(stakeAction->statusTip());
     stakeAction->setCheckable(true);
     stakeAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_4));
@@ -1408,7 +1408,7 @@ void BitcoinGUI::updateStakingIcon()
     {
         labelStakingIcon->setPixmap(platformStyle->SingleColorIcon(":/icons/staking_off").pixmap(STATUSBAR_ICONSIZE, STATUSBAR_ICONSIZE));
 
-        if (m_node.getNodeCount(CConnman::CONNECTIONS_ALL) < 4)
+        if (m_node.getNodeCount(CConnman::CONNECTIONS_ALL) < 3)
             labelStakingIcon->setToolTip(tr("Not mining because wallet is offline"));
         else if (m_node.isInitialBlockDownload())
             labelStakingIcon->setToolTip(tr("Not mining because wallet is syncing"));
