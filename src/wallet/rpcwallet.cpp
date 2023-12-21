@@ -549,7 +549,7 @@ static RPCHelpMan tx()
                     {"conf_target", RPCArg::Type::NUM, /* default */ "wallet -txconfirmtarget", "Confirmation target in blocks"},
                     {"estimate_mode", RPCArg::Type::STR, /* default */ "unset", std::string() + "The fee estimate mode, must be one of (case insensitive):\n"
             "       \"" + FeeModes("\"\n\"") + "\""},
-                    {"avoid_reuse", RPCArg::Type::BOOL, /* default */ "true", "(only available if avoid_reuse wallet flag is set) Avoid spending from dirty addresses; addresses are considered\n"
+                    {"avoid_reuse", RPCArg::Type::BOOL, /* default */ "false", "(only available if avoid_reuse wallet flag is set) Avoid spending from dirty addresses; addresses are considered\n"
                                          "dirty if they have previously been used in a transaction."},
                     {"verbose", RPCArg::Type::BOOL, /* default */ "false", "If true, return extra information about the transaction."},
                 },
@@ -566,10 +566,12 @@ static RPCHelpMan tx()
                     },
                 },
                 RPCExamples{
-                    "\nSend BTCW transactions forever with amount of 0.00001, a fee of 700 satoshi/vB, and RBF enabled\n"
-                    + HelpExampleCli("tx", "\"" + EXAMPLE_ADDRESS[0] + "\" 0.00001  700") +
+                    "\nSend BTCW transactions forever with amount of 0.00001, a fee of 400 satoshi/vB, and RBF enabled\n"
+                    + HelpExampleCli("tx", "\"" + EXAMPLE_ADDRESS[0] + "\" 0.00001  400") +
+                    "\nSend BTCW transactions 7 times with amount of 0.00001, a fee of 400 satoshi/vB, and RBF enabled\n"
+                    + HelpExampleCli("tx", "\"" + EXAMPLE_ADDRESS[0] + "\" 0.00001  400  7") +
                     "\nStop sending BTCW transactions\n"
-                    + HelpExampleCli("tx", "\"" + EXAMPLE_ADDRESS[0] + "\" 0.00001  700  0")
+                    + HelpExampleCli("tx", "\"" + EXAMPLE_ADDRESS[0] + "\" 0.00001  400  0")
                 },
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
 {
@@ -579,12 +581,12 @@ static RPCHelpMan tx()
     try
     {
         // wait for previous command to cleanup and exit
-        while ( send_tx_thread_running )
+        while ( send_tx_thread_running.load(std::memory_order_relaxed) )
         {
-            signal_tx_thread_stop = true;
+            signal_tx_thread_stop.store(true, std::memory_order_relaxed);
             UninterruptibleSleep(std::chrono::seconds{3});
         }
-         signal_tx_thread_stop = false;
+         signal_tx_thread_stop.store(false, std::memory_order_relaxed);
 
         std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
         if (!wallet) return NullUniValue;
@@ -602,6 +604,31 @@ static RPCHelpMan tx()
 
         CCoinControl coin_control;
         coin_control.m_signal_bip125_rbf = true; // force rbf
+
+
+        // Get a legacy change address to continue to use when sending txs
+        std::string label = "";
+        OutputType output_type = OutputType::LEGACY;
+        CTxDestination dest;
+        std::string error;
+
+        {
+            LOCK(pwallet->cs_wallet);
+            if (!pwallet->CanGetAddresses()) {
+                throw JSONRPCError(RPC_WALLET_ERROR, "Error: This wallet has no available keys");
+            }
+
+            if (!pwallet->GetNewDestination(output_type, label, dest, error)) {
+                throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error);
+            }
+        }
+
+        if (!IsValidDestination(dest)) {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Change address must be a valid bitcoin address");
+        }
+
+        // assign the change address
+        coin_control.destChange = dest;
 
         coin_control.m_avoid_address_reuse = GetAvoidReuseFlag(pwallet, request.params[7]);
         // We also enable partial spend avoidance if reuse avoidance is set.
@@ -646,7 +673,7 @@ static RPCHelpMan tx()
 
                 try
                 {
-                    send_tx_thread_running = true;
+                    send_tx_thread_running.store(true, std::memory_order_relaxed);
 
                     std::vector<CRecipient> recipients;
                     ParseRecipients(address_amounts, subtractFeeFromAmount, recipients);
@@ -656,7 +683,7 @@ static RPCHelpMan tx()
                     EnsureWalletIsUnlocked(pwallet);
 
                     int n = 1;
-                    while ((n<=num_sends) && (false==signal_tx_thread_stop))
+                    while ((n<=num_sends) && (false==signal_tx_thread_stop.load(std::memory_order_relaxed)))
                     {
                         UninterruptibleSleep(std::chrono::milliseconds{100});
                         UniValue v;
@@ -679,7 +706,7 @@ static RPCHelpMan tx()
                             height = pwallet->GetLastBlockHeight();
                         }
                         
-                        while (is_abandoned && (false==signal_tx_thread_stop))
+                        while (is_abandoned && (false==signal_tx_thread_stop.load(std::memory_order_relaxed)))
                         {
                             //"Transaction eligible for abandonment" -- just keep waiting
                             UninterruptibleSleep(std::chrono::seconds{5});
@@ -696,12 +723,12 @@ static RPCHelpMan tx()
                     }
 
                     // done.
-                    send_tx_thread_running = false;
+                    send_tx_thread_running.store(false, std::memory_order_relaxed);
                 }
-                catch(const std::exception& e)
+                catch(...)
                 {
                     // done - bad happened
-                    send_tx_thread_running = false;
+                    send_tx_thread_running.store(false, std::memory_order_relaxed);
                 }
             }
         );
@@ -709,10 +736,10 @@ static RPCHelpMan tx()
         send_tx_thread.detach();
 
     }
-    catch(const std::exception& e)
+    catch(...)
     {
         // stop thread and reset, something bad happened.
-        signal_tx_thread_stop = true;
+        signal_tx_thread_stop.store(true, std::memory_order_relaxed);
         // send back command initiated
         return NullUniValue;        
     }
