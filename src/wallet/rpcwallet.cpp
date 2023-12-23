@@ -750,6 +750,79 @@ static RPCHelpMan tx()
     };
 }
 
+RPCHelpMan txzap()
+{
+    return RPCHelpMan{"txzap",
+                "\nDeletes all unconfirmed txs from the wallet and restores your balance. Does not guarantee they won't be spent.\n"
+                "Note: This is normally used in conjuntion with the 'tx' command when the user wants to remove all\n"
+                "previous low fee unconfirmed txs so they can increase the fee and send again. After sending the txzap\n"
+                "command, you will need to close your wallet and delete the mempool.dat file in the data directory, then\n"
+                "start the wallet again. Your original balance will come back and the QUESTION MARKS (?) will no longer\n"
+                "be present. You can send txs again. The blockchain will protect from double spending.\n",
+                {},
+                RPCResult{RPCResult::Type::BOOL, "", "List of transactions that were removed from the wallet"},
+                RPCExamples{
+                    "\nZap away all unconfirmed transactions.\n"
+                    + HelpExampleCli("txzap", "")
+                },
+        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
+{
+
+    std::shared_ptr<CWallet> const pwallet = GetWalletForJSONRPCRequest(request);
+    if (!pwallet) return NullUniValue;
+
+    CWallet& wallet = *pwallet;
+    // Make sure the results are valid at least up to the most recent block
+    // the user could have gotten from another RPC command prior to now
+    wallet.BlockUntilSyncedToCurrentChain();
+
+    LOCK(wallet.cs_wallet);
+
+    UniValue ret(UniValue::VARR);
+    ret.push_back("Removed the following txid(s):");  
+
+    for (auto it = wallet.mapWallet.cbegin(); it != wallet.mapWallet.cend() /* not hoisted */; /* no increment */)
+        {
+            const CWalletTx& tx = it->second;
+
+            try
+            {
+                // Brute force try to zap all that are in mem pool
+                if (tx.fInMempool)
+                {
+                    uint256 hash(tx.GetHash());
+                    std::vector<uint256> vHash;
+                    vHash.push_back(hash);
+                    std::vector<uint256> vHashOut;
+
+                    if (wallet.ZapSelectTx(vHash, vHashOut) != DBErrors::LOAD_OK) {
+                        throw JSONRPCError(RPC_WALLET_ERROR, "Could not properly delete the transaction.");
+                    }
+
+                    if(vHashOut.empty()) {
+                        throw JSONRPCError(RPC_INVALID_PARAMETER, "Transaction does not exist in wallet.");
+                    }
+
+                    UniValue o(UniValue::VOBJ);
+                    o.pushKV("txid", hash.GetHex());
+                    ret.push_back(o);           
+                    it = wallet.mapWallet.cbegin();     
+                }
+                else
+                {
+                    ++it;
+                }
+            }
+            catch(...)
+            {
+            }
+        }
+
+    return ret;
+},
+    };
+}
+
 static RPCHelpMan listaddressgroupings()
 {
     return RPCHelpMan{"listaddressgroupings",
@@ -4923,6 +4996,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "signmessage",                      &signmessage,                   {"address","message"} },
     { "wallet",             "signrawtransactionwithwallet",     &signrawtransactionwithwallet,  {"hexstring","prevtxs","sighashtype"} },
     { "wallet",             "tx",                               &tx,                            {"address","amount","fee_rate","num_sends","subtractfeefromamount","conf_target","estimate_mode","avoid_reuse","verbose"} },
+    { "wallet",             "txzap",                            &txzap,                         {} },
     { "wallet",             "unloadwallet",                     &unloadwallet,                  {"wallet_name", "load_on_startup"} },
     { "wallet",             "upgradewallet",                    &upgradewallet,                 {"version"} },
     { "wallet",             "walletcreatefundedpsbt",           &walletcreatefundedpsbt,        {"inputs","outputs","locktime","options","bip32derivs"} },
