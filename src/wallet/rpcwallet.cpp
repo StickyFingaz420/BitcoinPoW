@@ -754,8 +754,8 @@ RPCHelpMan txzap()
 {
     return RPCHelpMan{"txzap",
                 "\nDeletes all unconfirmed txs from the wallet and restores your balance. Does not guarantee they won't be spent.\n"
-                "\nAlso turns all unconfirmed txs that never made it into the mempool into an abandoned tx. This command serves as\n"
-                "\nan automated way to cleanup after not setting the tx fee high enough for miners to take and mine into the blockchain.\n"                
+                "Also turns all unconfirmed txs that never made it into the mempool into an abandoned tx. This command serves as\n"
+                "an automated way to cleanup after not setting the tx fee high enough for miners to take and mine into the blockchain.\n"                
                 "Note: This is normally used in conjuntion with the 'tx' command when the user wants to remove all\n"
                 "previous low fee unconfirmed txs so they can increase the fee and send again. After sending the txzap\n"
                 "command, you will need to close your wallet and delete the mempool.dat file in the data directory, then\n"
