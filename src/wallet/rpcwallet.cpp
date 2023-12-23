@@ -754,6 +754,8 @@ RPCHelpMan txzap()
 {
     return RPCHelpMan{"txzap",
                 "\nDeletes all unconfirmed txs from the wallet and restores your balance. Does not guarantee they won't be spent.\n"
+                "\nAlso turns all unconfirmed txs that never made it into the mempool into an abandoned tx. This command serves as\n"
+                "\nan automated way to cleanup after not setting the tx fee high enough for miners to take and mine into the blockchain.\n"                
                 "Note: This is normally used in conjuntion with the 'tx' command when the user wants to remove all\n"
                 "previous low fee unconfirmed txs so they can increase the fee and send again. After sending the txzap\n"
                 "command, you will need to close your wallet and delete the mempool.dat file in the data directory, then\n"
@@ -787,7 +789,7 @@ RPCHelpMan txzap()
 
             try
             {
-                // Brute force try to zap all that are in mem pool
+                // Brute force try to zap all that are in mem pool or abandoned
                 if (tx.fInMempool)
                 {
                     uint256 hash(tx.GetHash());
@@ -803,11 +805,29 @@ RPCHelpMan txzap()
                         throw JSONRPCError(RPC_INVALID_PARAMETER, "Transaction does not exist in wallet.");
                     }
 
+                    // Zapped from mempool
                     UniValue o(UniValue::VOBJ);
                     o.pushKV("txid", hash.GetHex());
                     ret.push_back(o);           
                     it = wallet.mapWallet.cbegin();     
                 }
+                else if (!tx.isAbandoned())
+                {
+                    uint256 hash(tx.GetHash());
+
+                    if (!pwallet->AbandonTransaction(hash)) {
+                        // Transaction not eligible for abandonment, this is normal, increment, catch and continue
+                        // to cleanup more.
+                         ++it;
+                        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Transaction not eligible for abandonment");
+                    }
+
+                    // Zapped and made abandoned
+                    UniValue o(UniValue::VOBJ);
+                    o.pushKV("txid", hash.GetHex());
+                    ret.push_back(o);           
+                    it = wallet.mapWallet.cbegin();     
+                }                
                 else
                 {
                     ++it;
