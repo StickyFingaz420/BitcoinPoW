@@ -41,7 +41,7 @@
 #include <wallet/walletutil.h>
 #include <util/time.h>
 #include <stdint.h>
-
+#include <regex>
 #include <univalue.h>
 
 
@@ -540,7 +540,7 @@ static RPCHelpMan tx()
                 "\nSend transactions to an address for a BTCW miner to mine with." +
         HELP_REQUIRING_PASSPHRASE,
                 {
-                    {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The bitcoin address to send to."},
+                    {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The bitcoin destination address(s)."},
                     {"amount", RPCArg::Type::AMOUNT, RPCArg::Optional::NO, "The amount in " + CURRENCY_UNIT + " to send. eg 0.00001"},
                     {"fee_rate", RPCArg::Type::AMOUNT, /* default */ "not set, fall back to wallet fee estimation", "Specify a fee rate in " + CURRENCY_ATOM + "/vB."},                    
                     {"num_sends", RPCArg::Type::NUM, /* default */ "-1", "Confirmation target in blocks"},
@@ -566,10 +566,10 @@ static RPCHelpMan tx()
                     },
                 },
                 RPCExamples{
-                    "\nSend BTCW transactions forever with amount of 0.00001, a fee of 400 satoshi/vB, and RBF enabled\n"
-                    + HelpExampleCli("tx", "\"" + EXAMPLE_ADDRESS[0] + "\" 0.00001  400") +
-                    "\nSend BTCW transactions 7 times with amount of 0.00001, a fee of 400 satoshi/vB, and RBF enabled\n"
-                    + HelpExampleCli("tx", "\"" + EXAMPLE_ADDRESS[0] + "\" 0.00001  400  7") +
+                    "\nSend Billions of BTCW transactions with 3 output addresses in the amount of 0.00001, a fee of 400 satoshi/vB, and RBF enabled\n"
+                    + HelpExampleCli("tx", "\"1Ey8iHybCu28ciQG489vrJHYjpWwD7ZgRe 1HUGchYGqt3or2ZyB2a3cVaRNrua428LzW 17aKiEDvVN2YASnFBKzpirdB7R4UPaGtpQ\" 0.00001  400") +
+                    "\nSend 7 BTCW transactions with 2 output addresses in the amount of 0.00001, a fee of 400 satoshi/vB, and RBF enabled\n"
+                    + HelpExampleCli("tx", "\"1Ey8iHybCu28ciQG489vrJHYjpWwD7ZgRe 1HUGchYGqt3or2ZyB2a3cVaRNrua428LzW\" 0.00001  400  7") +
                     "\nStop sending BTCW transactions\n"
                     + HelpExampleCli("tx", "\"" + EXAMPLE_ADDRESS[0] + "\" 0.00001  400  0")
                 },
@@ -586,7 +586,7 @@ static RPCHelpMan tx()
             signal_tx_thread_stop.store(true, std::memory_order_relaxed);
             UninterruptibleSleep(std::chrono::seconds{3});
         }
-         signal_tx_thread_stop.store(false, std::memory_order_relaxed);
+        signal_tx_thread_stop.store(false, std::memory_order_relaxed);
 
         std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
         if (!wallet) return NullUniValue;
@@ -638,11 +638,6 @@ static RPCHelpMan tx()
 
         auto amnt = request.params[1].get_real();
 
-        if (amnt < 0.00001)
-        {
-            UniValue warn = "Send amount less than 0.00001, failed to send.";
-            return warn;
-        }
 
         // No Wallet comments
         mapValue_t mapValue;
@@ -651,11 +646,24 @@ static RPCHelpMan tx()
 
         UniValue address_amounts(UniValue::VOBJ);
         const std::string address = request.params[0].get_str();
-        address_amounts.pushKV(address, request.params[1]);
-        UniValue subtractFeeFromAmount(UniValue::VARR);
-        if (fSubtractFeeFromAmount) {
-            subtractFeeFromAmount.push_back(address);
+
+        // Parse address(s) tokenize on white space.
+        auto v_address = [](const std::string& input, const std::string& regex) -> std::vector<std::string>
+        {
+            std::regex re(regex);
+            std::sregex_token_iterator
+                first{input.begin(), input.end(), re, -1},
+                last;
+            return {first, last};
+        }(address, "\\s+");
+
+        // Use the same fee for all address(s)
+        for (auto a : v_address)
+        {
+            address_amounts.pushKV(a, request.params[1]);
         }
+
+        UniValue subtractFeeFromAmount(UniValue::VARR); // ignore - not used
 
         int64_t num_sends = 0;
         if (!request.params[3].isNull()) {
