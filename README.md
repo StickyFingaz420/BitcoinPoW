@@ -147,7 +147,8 @@ massive in nodes and massive in mining decentralization.
 How to mine
 -------
 Goals of mining are simple. Create as many transactions for your mining needs. You can also create more transaction as a reserve for the future(HINT HINT). 
-As a simple rule from above, we have established 1 BTCW gives about 1 computer's worth of PoW. Look below on how to get free BTCW to start mining.
+
+UPDATE: -> Use the 'tx' command on the console to create transactions (type 'help tx'), the original way is shown below in Python.
 
 Below is a Python script that can be used to help generate transaction. I generally like to fill about 10,000 
 transactions per BTC address.
@@ -306,17 +307,6 @@ placed inside an ASIC in the future, however the purpose of BitcoinPoW is to cre
 pools. Read above on how BitcoinPoW prevents pools. For now, all mining is CPU mining on BitcoinPoW. It would take years for someone
 ready to invest and design the ASIC to do so. Even if/when ASICS come, the true benefit of BitcoinPoW is its PoW/PoT forcing
 solo mining decentralization.
-
-
-Free coins
--------
-If you would like to create transactions to start mining you can get free coins here:
-```
-Twitter (X): https://twitter.com/bitcoin_pow
-Telegram:    https://t.me/BitcoinPoWPoT
-```
-
-
 
 
 For more information see https://www.bitcoin-pow.org
