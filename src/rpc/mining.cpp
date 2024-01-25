@@ -320,16 +320,8 @@ static RPCHelpMan getmininginfo()
                 },
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
 {
-    LOCK(cs_main);
+
     const CTxMemPool& mempool = EnsureMemPool(request.context);
-
-    UniValue obj(UniValue::VOBJ);
-    UniValue diff(UniValue::VOBJ);
-    UniValue weight(UniValue::VOBJ);
-
-    obj.pushKV("blocks",           (int)::ChainActive().Height());
-    if (BlockAssembler::m_last_block_weight) obj.pushKV("currentblockweight", *BlockAssembler::m_last_block_weight);
-    if (BlockAssembler::m_last_block_num_txs) obj.pushKV("currentblocktx", *BlockAssembler::m_last_block_num_txs);
 
     uint64_t nWeight = 0;
     uint64_t lastCoinStakeSearchInterval = 0;
@@ -343,6 +335,17 @@ static RPCHelpMan getmininginfo()
         lastCoinStakeSearchInterval = pwallet->m_last_coin_stake_search_interval;
     }
 #endif
+
+    LOCK(cs_main);
+
+    UniValue obj(UniValue::VOBJ);
+    UniValue diff(UniValue::VOBJ);
+    UniValue weight(UniValue::VOBJ);
+
+    obj.pushKV("blocks",           (int)::ChainActive().Height());
+    if (BlockAssembler::m_last_block_weight) obj.pushKV("currentblockweight", *BlockAssembler::m_last_block_weight);
+    if (BlockAssembler::m_last_block_num_txs) obj.pushKV("currentblocktx", *BlockAssembler::m_last_block_num_txs);
+
     diff.pushKV("proof-of-work",   (double)GetDifficulty(GetLastBlockIndex(::ChainActive().Tip(), false)));
     diff.pushKV("proof-of-stake",  (double)GetDifficulty(GetLastBlockIndex(::ChainActive().Tip(), true)));
     diff.pushKV("search-interval", (int)lastCoinStakeSearchInterval);
@@ -390,7 +393,6 @@ static UniValue getstakinginfo(const JSONRPCRequest& request)
                 },
             }.Check(request);
 
-    LOCK(cs_main);
     const CTxMemPool& mempool = EnsureMemPool(request.context);
 
     uint64_t nWeight = 0;
@@ -406,6 +408,8 @@ static UniValue getstakinginfo(const JSONRPCRequest& request)
         lastCoinStakeSearchInterval = pwallet->m_enabled_staking ? pwallet->m_last_coin_stake_search_interval : 0;
     }
 #endif
+
+    LOCK(cs_main);
 
     uint64_t nNetworkWeight = GetPoSKernelPS();
     bool staking = lastCoinStakeSearchInterval && nWeight;
@@ -458,8 +462,6 @@ static UniValue getstakingstatus(const JSONRPCRequest& request)
                 },
             }.Check(request);
 
-    LOCK(cs_main);
-
     NodeContext& node = EnsureNodeContext(request.context);
     if(!node.connman)
         throw JSONRPCError(RPC_CLIENT_P2P_DISABLED, "Error: Peer-to-peer functionality missing or disabled");
@@ -482,8 +484,10 @@ static UniValue getstakingstatus(const JSONRPCRequest& request)
     }
 #endif
 
+    LOCK(cs_main);
+
     bool staking = walletStakingEnabled && lastCoinStakeSearchInterval && nWeight;
-    bool hasConnections = node.connman->GetNodeCount(CConnman::CONNECTIONS_ALL) >= 4;
+    bool hasConnections = node.connman->GetNodeCount(CConnman::CONNECTIONS_ALL) >= 3;
     bool isSynced = !::ChainstateActive().IsInitialBlockDownload();
     bool hasCoins = nWeight != 0;
 
