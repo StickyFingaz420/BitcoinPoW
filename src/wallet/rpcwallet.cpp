@@ -49,6 +49,7 @@ using interfaces::FoundBlock;
 
 static const std::string WALLET_ENDPOINT_BASE = "/wallet/";
 static const std::string HELP_REQUIRING_PASSPHRASE{"\nRequires wallet passphrase to be set with walletpassphrase call if wallet is encrypted.\n"};
+static bool unconfirms_present(const CWallet* const pwallet);
 
 static inline bool GetAvoidReuseFlag(const CWallet* const pwallet, const UniValue& param) {
     bool can_avoid_reuse = pwallet->IsWalletFlagSet(WALLET_FLAG_AVOID_REUSE);
@@ -543,7 +544,7 @@ static RPCHelpMan tx()
                     {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The bitcoin destination address(s)."},
                     {"amount", RPCArg::Type::AMOUNT, RPCArg::Optional::NO, "The amount in " + CURRENCY_UNIT + " to send. eg 0.00001"},
                     {"fee_rate", RPCArg::Type::AMOUNT, /* default */ "not set, fall back to wallet fee estimation", "Specify a fee rate in " + CURRENCY_ATOM + "/vB."},                    
-                    {"num_sends", RPCArg::Type::NUM, /* default */ "-1", "Confirmation target in blocks"},
+                    {"num_sends", RPCArg::Type::NUM, /* default */ "-1", "Number of txs to send, If value not specified, only send a tx if there are no unconfirmed txs"},
                     {"subtractfeefromamount", RPCArg::Type::BOOL, /* default */ "false", "The fee will be deducted from the amount being sent.\n"
                                          "The recipient will receive less bitcoins than you enter in the amount field."},
                     {"conf_target", RPCArg::Type::NUM, /* default */ "wallet -txconfirmtarget", "Confirmation target in blocks"},
@@ -670,10 +671,17 @@ static RPCHelpMan tx()
             num_sends = request.params[3].get_int();
         }
         
+        // If 'check4_unconfirms_present' is true, only allow tx sending if there are no unconfirmed txs. This prevents bloating of the 
+        // wallet.dat because every new block would result in many abandoned txs if we send every block and abandon due to the 25 tx
+        // limit. This check makes it difficult to encounter that 25 limit shown here:
+        //      Bitcoin Core 0.12 also introduces new default policy limits on the length and size of unconfirmed transaction chains 
+        //      that are allowed in the mempool (generally limiting the length of unconfirmed chains to 25 transactions.
+        bool check4_unconfirms_present = false;
         if (num_sends < 0 || request.params[3].isNull() )
         {
             // // default to run forever
             num_sends = std::numeric_limits<int64_t>::max();
+            check4_unconfirms_present = true;
         }
 
         coin_control.m_signal_bip125_rbf = true; // force rbf
@@ -693,33 +701,56 @@ static RPCHelpMan tx()
                     int n = 1;
                     while ((n<=num_sends) && (false==signal_tx_thread_stop.load(std::memory_order_relaxed)))
                     {
-                        UninterruptibleSleep(std::chrono::milliseconds{100});
+                        UninterruptibleSleep(std::chrono::milliseconds{1000});
+                        bool are_unconfirms = false;
                         UniValue v;
                         {
                             LOCK(pwallet->cs_wallet);
-                            v = SendMoney(pwallet, coin_control, recipients, mapValue, verbose);
+                            if (check4_unconfirms_present)
+                                are_unconfirms = unconfirms_present(pwallet);
+                            if (!are_unconfirms)
+                            {
+                                v = SendMoney(pwallet, coin_control, recipients, mapValue, verbose);
+                                n++;
+                            }
                         }
                         
-                        std::string txid = v.get_str();
-                        uint256 hash(uint256S(txid.c_str()));
-
-                        if (!pwallet->mapWallet.count(hash)) {
-                            // Invalid or non-wallet transaction id
-                            break;
+                        std::string txid;
+                        if (v.isStr())
+                        {
+                            txid = v.get_str();
                         }
-                        bool is_abandoned = false;                
+                        uint256 hash;
+                        bool is_abandoned = false; 
+                        
+                        if ( txid.size() > 0 )
+                        {
+                            hash = uint256S(txid.c_str());
+
+                            if (!pwallet->mapWallet.count(hash)) {
+                                // Invalid or non-wallet transaction id
+                                break;
+                            }
+                        }
+
                         {
                             LOCK(pwallet->cs_wallet);
-                            is_abandoned = pwallet->AbandonTransaction(hash);
-                            height = pwallet->GetLastBlockHeight();
-                        }
-                        
-                        while (is_abandoned && (false==signal_tx_thread_stop.load(std::memory_order_relaxed)))
+                            height = pwallet->GetLastBlockHeight();                            
+                            if (!hash.IsNull())
+                            {
+                                is_abandoned = pwallet->AbandonTransaction(hash);
+                            }
+                        }  
+
+                        while ( (are_unconfirms || is_abandoned) && (false==signal_tx_thread_stop.load(std::memory_order_relaxed)))
                         {
                             //"Transaction eligible for abandonment" -- just keep waiting
                             UninterruptibleSleep(std::chrono::seconds{5});
                             {
                                 LOCK(pwallet->cs_wallet);
+                                if (check4_unconfirms_present)
+                                    are_unconfirms = unconfirms_present(pwallet);                                
+
                                 if (height != pwallet->GetLastBlockHeight())
                                 {
                                     // new block found! Try again.
@@ -727,7 +758,6 @@ static RPCHelpMan tx()
                                 }
                             }                    
                         }
-                        n++;
                     }
 
                     // done.
@@ -4950,6 +4980,31 @@ static RPCHelpMan upgradewallet()
 },
     };
 }
+
+
+bool unconfirms_present(const CWallet* const pwallet)
+{
+    bool include_unsafe = true;
+
+    CAmount nMinimumAmount = 0;
+    CAmount nMaximumAmount = MAX_MONEY;
+    CAmount nMinimumSumAmount = MAX_MONEY;
+    uint64_t nMaximumCount = 0;
+
+    UniValue results(UniValue::VARR);
+    std::vector<COutput> vecOutputs;
+    {
+        CCoinControl cctl;
+        cctl.m_avoid_address_reuse = false;
+        cctl.m_min_depth = 0;
+        cctl.m_max_depth = 0;
+        LOCK(pwallet->cs_wallet);
+        pwallet->AvailableCoins(vecOutputs, !include_unsafe, &cctl, true, false, nMinimumAmount, nMaximumAmount, nMinimumSumAmount, nMaximumCount);
+    }
+
+    return (vecOutputs.size() > 0);
+}
+
 
 RPCHelpMan abortrescan();
 RPCHelpMan dumpprivkey();
