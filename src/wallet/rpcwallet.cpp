@@ -795,9 +795,13 @@ RPCHelpMan txzap()
                 "Also turns all unconfirmed txs that never made it into the mempool into an abandoned tx. This command serves as\n"
                 "an automated way to cleanup after not setting the tx fee high enough for miners to take and mine into the blockchain.\n"                
                 "Note: This is normally used in conjuntion with the 'tx' command when the user wants to remove all\n"
-                "previous low fee unconfirmed txs so they can increase the fee and send again. After sending the txzap\n"
-                "command, you will need to close your wallet and delete the mempool.dat file in the data directory, then\n"
-                "start the wallet again. Your original balance will come back and the QUESTION MARKS (?) will no longer\n"
+                "previous low fee unconfirmed txs so they can increase the fee and send again.\n"
+                "Follow the steps shown below in the exact order:\n\n"
+                "1) txzap\n"
+                "2) Close your QT or node\n"
+                "3) Delete the mempool.dat file from the data directory\n"
+                "4) Start QT or the node with the    --rescan=1    argument\n"
+                "\nYour original balance will come back and the QUESTION MARKS (?) will no longer\n"
                 "be present. You can send txs again. The blockchain will protect from double spending.\n",
                 {},
                 RPCResult{RPCResult::Type::BOOL, "", "List of transactions that were removed from the wallet"},
