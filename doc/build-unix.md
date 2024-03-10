@@ -203,11 +203,23 @@ Setup and Build Example: Arch Linux
 This example lists the steps necessary to setup and build a command line only distribution of the latest changes on Arch Linux:
 
     pacman --sync --needed autoconf automake boost gcc git libevent libtool make pkgconf python sqlite
-    git clone https://github.com/bitcoin/bitcoin.git
-    cd bitcoin/
+    git clone https://github.com/bitcoin-pow/BitcoinPoW.git
+    cd BitcoinPoW/
     ./autogen.sh
     ./configure
     make check
     ./src/bitcoind
+
+
+Portable Linux build
+-------------------
+    git clone https://github.com/bitcoin-pow/BitcoinPoW.git
+    cd depends
+    make
+    cd ..
+    export CONFIG_SITE=`pwd`/depends/x86_64-pc-linux-gnu/share/config.site
+    ./autogen.sh
+    ./configure --enable-glibc-back-compat --prefix=`pwd`/depends/x86_64-pc-linux-gnu LDFLAGS="-static-libstdc++"
+    make
 
 If you intend to work with legacy Berkeley DB wallets, see [Berkeley DB](#berkeley-db) section.
