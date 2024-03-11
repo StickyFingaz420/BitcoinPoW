@@ -273,15 +273,19 @@ static RPCHelpMan generate()
 
         invoked.store(true, std::memory_order_relaxed);
         std::thread mining_thread([=]() {
-                try
+                // If exception is thrown, try to mine again.
+                while (true)
                 {
-                    node::ThreadStakeMiner(*gp_wallet, connman, chainman, mempool);
-                    invoked.store(false, std::memory_order_relaxed);
-                }
-                catch(...)
-                {
-                    // done - bad happened
-                    invoked.store(false, std::memory_order_relaxed);
+                    try
+                    {
+                        node::ThreadStakeMiner(*gp_wallet, connman, chainman, mempool);
+                        invoked.store(false, std::memory_order_relaxed);
+                        break; // completed naturally, break out
+                    }
+                    catch(...)
+                    {
+                        // try again in loop
+                    }
                 }
             }
         );

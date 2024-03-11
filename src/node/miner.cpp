@@ -809,7 +809,6 @@ void ThreadStakeMiner(wallet::CWallet& wallet, CConnman& connman, ChainstateMana
                         // Update the search time when new valid block is created, needed for status bar icon
                         wallet.m_last_coin_stake_search_time = pblockfilled->GetBlockTime();
                     }
-                    break;
                 }
             }
         
