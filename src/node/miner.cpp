@@ -639,12 +639,17 @@ void ThreadStakeMiner(wallet::CWallet& wallet, CConnman& connman, ChainstateMana
         while (wallet.IsLocked())
         {
             wallet.m_last_coin_stake_search_interval = 0;
+            s_hashes_per_second = 0;
+            s_cpu_loading = 0;
             UninterruptibleSleep(std::chrono::milliseconds{1000});      
             continue;    
         }
         // Check if the last PoW block has been mined yet
         if (chainman.ActiveChain().Tip()->nHeight < Params().GetConsensus().nLastPOWBlock) {
-            UninterruptibleSleep(std::chrono::milliseconds{Params().GetConsensus().nPowTargetSpacing * 1000});// sleep one block
+            UninterruptibleSleep(std::chrono::milliseconds{Params().GetConsensus().nPowTargetSpacing * 1000});
+            wallet.m_last_coin_stake_search_interval = 0;
+            s_hashes_per_second = 0;
+            s_cpu_loading = 0;
             continue;
         }
         // Don't disable PoS mining for no connections if in regtest mode
@@ -665,6 +670,9 @@ void ThreadStakeMiner(wallet::CWallet& wallet, CConnman& connman, ChainstateMana
                     !chainman.ActiveChain().Tip()->HaveTxsDownloaded() ||
                     !chainman.ActiveChain().Tip()->IsValid(BLOCK_VALID_TRANSACTIONS)) {
                     UninterruptibleSleep(std::chrono::milliseconds{1000});
+                    wallet.m_last_coin_stake_search_interval = 0;
+                    s_hashes_per_second = 0;
+                    s_cpu_loading = 0;
                     continue;
                 }
             }
@@ -673,6 +681,9 @@ void ThreadStakeMiner(wallet::CWallet& wallet, CConnman& connman, ChainstateMana
         // Cannot mine with 0 connections.
         if (connman.GetNodeCount(ConnectionDirection::Both) == 0 ) {
             UninterruptibleSleep(std::chrono::milliseconds{1000});
+            wallet.m_last_coin_stake_search_interval = 0;
+            s_hashes_per_second = 0;
+            s_cpu_loading = 0;
             continue;
         }
 
@@ -825,7 +836,7 @@ DONE_MINING:
     // Not mining anymore, show 0 hps.
     wallet.m_last_coin_stake_search_interval = 0;
     s_hashes_per_second = 0;
-    s_cpu_loading = 0;    
+    s_cpu_loading = 0;
 }
 
 #endif
