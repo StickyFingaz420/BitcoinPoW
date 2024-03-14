@@ -531,52 +531,52 @@ endif
 #
 
 # wallet #
-libbitcoin_wallet_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(BOOST_CPPFLAGS) $(BDB_CPPFLAGS) $(SQLITE_CFLAGS)
-libbitcoin_wallet_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-libbitcoin_wallet_a_SOURCES = \
-  wallet/coincontrol.cpp \
-  wallet/context.cpp \
-  wallet/crypter.cpp \
-  wallet/db.cpp \
-  wallet/dump.cpp \
-  wallet/external_signer_scriptpubkeyman.cpp \
-  wallet/feebumper.cpp \
-  wallet/fees.cpp \
-  wallet/interfaces.cpp \
-  wallet/load.cpp \
-  wallet/receive.cpp \
-  wallet/rpc/addresses.cpp \
-  wallet/rpc/backup.cpp \
-  wallet/rpc/coins.cpp \
-  wallet/rpc/encrypt.cpp \
-  wallet/rpc/spend.cpp \
-  wallet/rpc/signmessage.cpp \
-  wallet/rpc/transactions.cpp \
-  wallet/rpc/util.cpp \
-  wallet/rpc/wallet.cpp \
-  wallet/scriptpubkeyman.cpp \
-  wallet/spend.cpp \
-  wallet/transaction.cpp \
-  wallet/wallet.cpp \
-  wallet/walletdb.cpp \
-  wallet/walletutil.cpp \
-  wallet/coinselection.cpp \
-  $(BITCOIN_CORE_H)
-
-if USE_SQLITE
-libbitcoin_wallet_a_SOURCES += wallet/sqlite.cpp
-endif
-if USE_BDB
-libbitcoin_wallet_a_SOURCES += wallet/bdb.cpp wallet/salvage.cpp
-endif
+#libbitcoin_wallet_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(BOOST_CPPFLAGS) $(BDB_CPPFLAGS) $(SQLITE_CFLAGS)
+#libbitcoin_wallet_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+#libbitcoin_wallet_a_SOURCES = \
+#  wallet/coincontrol.cpp \
+#  wallet/context.cpp \
+#  wallet/crypter.cpp \
+#  wallet/db.cpp \
+#  wallet/dump.cpp \
+#  wallet/external_signer_scriptpubkeyman.cpp \
+#  wallet/feebumper.cpp \
+#  wallet/fees.cpp \
+#  wallet/interfaces.cpp \
+#  wallet/load.cpp \
+#  wallet/receive.cpp \
+#  wallet/rpc/addresses.cpp \
+#  wallet/rpc/backup.cpp \
+#  wallet/rpc/coins.cpp \
+#  wallet/rpc/encrypt.cpp \
+#  wallet/rpc/spend.cpp \
+#  wallet/rpc/signmessage.cpp \
+#  wallet/rpc/transactions.cpp \
+#  wallet/rpc/util.cpp \
+#  wallet/rpc/wallet.cpp \
+#  wallet/scriptpubkeyman.cpp \
+#  wallet/spend.cpp \
+#  wallet/transaction.cpp \
+#  wallet/wallet.cpp \
+#  wallet/walletdb.cpp \
+#  wallet/walletutil.cpp \
+#  wallet/coinselection.cpp \
+#  $(BITCOIN_CORE_H)
+#
+#if USE_SQLITE
+#libbitcoin_wallet_a_SOURCES += wallet/sqlite.cpp
+#endif
+#if USE_BDB
+#libbitcoin_wallet_a_SOURCES += wallet/bdb.cpp wallet/salvage.cpp
+#endif
 #
 
 # wallet tool #
-libbitcoin_wallet_tool_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(BOOST_CPPFLAGS)
-libbitcoin_wallet_tool_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-libbitcoin_wallet_tool_a_SOURCES = \
-  wallet/wallettool.cpp \
-  $(BITCOIN_CORE_H)
+#libbitcoin_wallet_tool_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(BOOST_CPPFLAGS)
+#libbitcoin_wallet_tool_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+#libbitcoin_wallet_tool_a_SOURCES = \
+#  wallet/wallettool.cpp \
+#  $(BITCOIN_CORE_H)
 #
 
 # crypto #
@@ -887,26 +887,26 @@ bitcoin_tx_LDADD = \
 #
 
 # bitcoin-wallet binary #
-bitcoin_wallet_SOURCES = bitcoin-wallet.cpp
-bitcoin_wallet_SOURCES += init/bitcoin-wallet.cpp
-bitcoin_wallet_CPPFLAGS = $(bitcoin_bin_cppflags)
-bitcoin_wallet_CXXFLAGS = $(bitcoin_bin_cxxflags)
-bitcoin_wallet_LDFLAGS = $(bitcoin_bin_ldflags)
-bitcoin_wallet_LDADD = \
-  $(LIBBITCOIN_WALLET_TOOL) \
-  $(LIBBITCOIN_WALLET) \
-  $(LIBBITCOIN_COMMON) \
-  $(LIBBITCOIN_UTIL) \
-  $(LIBUNIVALUE) \
-  $(LIBBITCOIN_CONSENSUS) \
-  $(LIBBITCOIN_CRYPTO) \
-  $(LIBSECP256K1) \
-  $(BDB_LIBS) \
-  $(SQLITE_LIBS)
-
-if TARGET_WINDOWS
-bitcoin_wallet_SOURCES += bitcoin-wallet-res.rc
-endif
+#bitcoin_wallet_SOURCES = bitcoin-wallet.cpp
+#bitcoin_wallet_SOURCES += init/bitcoin-wallet.cpp
+#bitcoin_wallet_CPPFLAGS = $(bitcoin_bin_cppflags)
+#bitcoin_wallet_CXXFLAGS = $(bitcoin_bin_cxxflags)
+#bitcoin_wallet_LDFLAGS = $(bitcoin_bin_ldflags)
+#bitcoin_wallet_LDADD = \
+#  $(LIBBITCOIN_WALLET_TOOL) \
+#  $(LIBBITCOIN_WALLET) \
+#  $(LIBBITCOIN_COMMON) \
+#  $(LIBBITCOIN_UTIL) \
+#  $(LIBUNIVALUE) \
+#  $(LIBBITCOIN_CONSENSUS) \
+#  $(LIBBITCOIN_CRYPTO) \
+#  $(LIBSECP256K1) \
+#  $(BDB_LIBS) \
+#  $(SQLITE_LIBS)
+#
+#if TARGET_WINDOWS
+#bitcoin_wallet_SOURCES += bitcoin-wallet-res.rc
+#endif
 #
 
 # bitcoin-util binary #
