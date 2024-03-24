@@ -159,7 +159,7 @@
          <string>Use descriptors for scriptPubKey management</string>
         </property>
         <property name="text">
-         <string>Descriptor Wallet</string>
+         <string>Descriptor Wallet *** Miners must unselect this box ***</string>
         </property>
         <property name="checked">
          <bool>true</bool>
