@@ -1,18 +1,15 @@
-26.x Release Notes (BTCW/BTC)
+26.1.1 Release Notes (BTCW)
 ==================
 
-Merged the BitcoinPoW/PoT code into BTC 26.x.
+Bitcoin Core version 26.1.1 is now available from:
 
-Bitcoin Core version 26.x is now available from:
+  <https://github.com/bitcoin-pow/BitcoinPoW/releases>
 
-  <https://bitcoincore.org/bin/bitcoin-core-26.x/>
-
-This release includes new features, various bug fixes and performance
-improvements, as well as updated translations.
+This release includes new bug fixes.
 
 Please report bugs using the issue tracker at GitHub:
 
-  <https://github.com/bitcoin/bitcoin/issues>
+  <https://github.com/bitcoin-pow/BitcoinPoW/issues>
 
 To receive security and update notifications, please subscribe to:
 
@@ -23,8 +20,8 @@ How to Upgrade
 
 If you are running an older version, shut it down. Wait until it has completely
 shut down (which might take a few minutes in some cases), then run the
-installer (on Windows) or just copy over `/Applications/Bitcoin-Qt` (on macOS)
-or `bitcoind`/`bitcoin-qt` (on Linux).
+installer (on Windows) or just copy over `/Applications/Bitcoin-pow-Qt` (on macOS)
+or `bitcoin-powd`/`bitcoin-pow-qt` (on Linux).
 
 Upgrading directly from a version of Bitcoin Core that has reached its EOL is
 possible, but it might take some time if the data directory needs to be migrated. Old
@@ -41,73 +38,19 @@ unsupported systems.
 
 Notable changes
 ===============
-### BTCW updates:
-- To mine BTCW, use the rpc command  'generate'
-- Miner is single threaded, only one wallet can be loaded when mining.
-- Stop mining by clicking the lightning icon and select stop mining.
-- getmininginfo rpc command returns cpu loading / local hashrate / days to find block.
-- Hover over lightning icon to get mining stats.
-- tx / txzap / rescan rpc commands have been added.
-- The binaries built use the same naming convention as Bitcoin. bitcoin-qt is the binary. Rename manually if you wish.
 
 ### Wallet
 
-- #28994 wallet: skip BnB when SFFO is enabled
-- #28920 wallet: birth time update during tx scanning
-- #29176 wallet: Fix use-after-free in WalletBatch::EraseRecords
-- #29510 wallet: getrawchangeaddress and getnewaddress failures should not affect keypools for descriptor wallets
+- https://github.com/bitcoin-pow/BitcoinPoW/issues/38 - Restore creation of legacy wallet
 
-### RPC
-
-- #29003 rpc: fix getrawtransaction segfault
-- #28784 rpc: keep .cookie file if it was not generated
-
-### Logs
-
-- #29227 log mempool loading progress
-
-### P2P and network changes
-
-- #29200 net: create I2P sessions using both ECIES-X25519 and ElGamal encryption
-- #29412 p2p: Don't process mutated blocks
-- #29524 p2p: Don't consider blocks mutated if they don't connect to known prev block
-
-### Build
-
-- #29127 Use hardened runtime on macOS release builds.
-- #29195 build: Fix -Xclang -internal-isystem option
-
-### CI
-
-- #28992 ci: Use Ubuntu 24.04 Noble for asan,tsan,tidy,fuzz
-- #29080 ci: Set HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK to avoid unrelated failures
-
-### Miscellaneous
-
-- #28391 refactor: Simplify CTxMempool/BlockAssembler fields, remove some external mapTx access
-- #29179 test: wallet rescan with reorged parent + IsFromMe child in mempool
-- #28791 snapshots: don't core dump when running -checkblockindex after loadtxoutset
-- #29357 test: Drop x modifier in fsbridge::fopen call for MinGW builds
-- #29529 fuzz: restrict fopencookie usage to Linux & FreeBSD
 
 Credits
 =======
 
 Thanks to everyone who directly contributed to this release:
 
-- Fluffy Function
-- dergoegge
-- fanquake
-- furszy
-- glozow
-- Greg Sanders
-- Hennadii Stepanov
-- MarcoFalke
-- Martin Zumsande
-- Murch
-- Roman Zeyde
-- stickies-v
-- UdjinM6
+- mraksoll4
+- FluffyFunction
 
 As well as to everyone that helped with translations on
 [Transifex](https://www.transifex.com/bitcoin/bitcoin/).
