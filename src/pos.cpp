@@ -72,35 +72,32 @@ bool CheckStakeKernelHash(CBlockIndex* pindexPrev, unsigned int nBits, uint32_t 
 
     uint256 nStakeModifier = pindexPrev->nStakeModifier;
 
+    // Calculate hash
+    CDataStream ss(SER_GETHASH, 0);
+    ss << nStakeModifier;
+    ss << blockFromTime << prevout.hash << prevout.n << nTimeBlock;
+    hashProofOfStake = Hash(ss);
+
+    // if (fPrintProofOfStake) {
+    //     LogPrint(BCLog::COINSTAKE, "CheckStakeKernelHash() : check modifier=%s nTimeBlockFrom=%u nPrevout=%u nTimeBlock=%u hashProof=%s\n",
+    //         nStakeModifier.GetHex().c_str(),
+    //         blockFromTime, prevout.n, nTimeBlock,
+    //         hashProofOfStake.ToString());
+    // }
+
+    // Now check if hash meets target protocol
+    arith_uint256 actual = UintToArith256(hashProofOfStake);
+    if (actual <= bnTarget)
+        return true;
+
     // BitcoinPoW (BTCW) fork for more sha256
-    if ( (pindexPrev->nHeight + 1) < BITCOIN_POW256_START_HEIGHT )
-    {
-        // Calculate hash
-        CDataStream ss(SER_GETHASH, 0);
-        ss << nStakeModifier;
-        ss << blockFromTime << prevout.hash << prevout.n << nTimeBlock;
-        hashProofOfStake = Hash(ss);
-
-        // if (fPrintProofOfStake) {
-        //     LogPrint(BCLog::COINSTAKE, "CheckStakeKernelHash() : check modifier=%s nTimeBlockFrom=%u nPrevout=%u nTimeBlock=%u hashProof=%s\n",
-        //         nStakeModifier.GetHex().c_str(),
-        //         blockFromTime, prevout.n, nTimeBlock,
-        //         hashProofOfStake.ToString());
-        // }
-
-        // Now check if hash meets target protocol
-        arith_uint256 actual = UintToArith256(hashProofOfStake);
-        if (actual <= bnTarget)
-            return true;
-    
-    }
-    else
+    if ( (pindexPrev->nHeight + 1) >= BITCOIN_POW256_START_HEIGHT )
     {
 
         // BitcoinPoW - HARDFORK - Block 23,333 and beyond - add more sha256 PoW
         // NOTE: Validation needs to see a solution somewhere in the 256 window. It doesn't matter which of the 256
         //       attempts has the valid solution.
-        for ( volatile int k=1; k<=256; k++ )
+        for ( volatile int k=1; k<256; k++ )
         {
             // Calculate hash
             CDataStream ss(SER_GETHASH, 0);
