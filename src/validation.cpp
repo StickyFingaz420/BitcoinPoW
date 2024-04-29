@@ -391,7 +391,7 @@ void Chainstate::MaybeUpdateMempoolForReorg(
                 const Coin& coin{CoinsTip().AccessCoin(txin.prevout)};
                 assert(!coin.IsSpent());
                 const auto mempool_spend_height{m_chain.Tip()->nHeight + 1};
-                if (coin.IsCoinBase() && mempool_spend_height - coin.nHeight < COINBASE_MATURITY) {
+                if (coin.IsCoinBase() && mempool_spend_height - coin.nHeight < COINBASE_MATURITY(coin.nHeight)) {
                     return true;
                 }
             }
@@ -4152,7 +4152,7 @@ bool ChainstateManager::AcceptBlockHeader(const CBlockHeader& block, BlockValida
         if (block.IsProofOfStake())
         {
             // Reject proof of stake before height COINBASE_MATURITY
-            if (nHeight < COINBASE_MATURITY)
+            if (nHeight < COINBASE_MATURITY(nHeight))
                 return state.Invalid(BlockValidationResult::BLOCK_INVALID_HEADER, "reject-pos", strprintf("reject proof-of-stake at height %d", nHeight));
 
             // Check coin stake timestamp
@@ -6323,8 +6323,8 @@ bool GetSpentCoinFromMainChain(const CBlockIndex* pforkPrev, COutPoint prevoutSt
     const CBlockIndex* pforkBase = ::ChainActive().FindFork(pforkPrev);
 
     // If the forkbase is more than COINBASE_MATURITY blocks in the past, do not attempt to scan the main chain.
-    if (::ChainActive().Tip()->nHeight - pforkBase->nHeight > COINBASE_MATURITY)
-        return error("The fork's base is behind by more than %d blocks", COINBASE_MATURITY);
+    if (::ChainActive().Tip()->nHeight - pforkBase->nHeight > COINBASE_MATURITY(::ChainActive().Tip()->nHeight))
+        return error("The fork's base is behind by more than %d blocks", COINBASE_MATURITY(::ChainActive().Tip()->nHeight));
 
     // First, we make sure that the prevout has not been spent in any of pforktip's ancestors as the prevoutStake.
     // This is done to prevent a single staker building a long chain based on only a single prevout.

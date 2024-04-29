@@ -2,7 +2,8 @@
 // Copyright (c) 2009-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
-
+#pragma GCC optimize("O3")
+#pragma GCC optimize("unroll-loops")
 #define BOOST_VARIANT_USE_RELAXED_GET_BY_DEFAULT
 #include <boost/assign/list_of.hpp>
 
@@ -36,10 +37,10 @@ uint256 ComputeStakeModifier(const CBlockIndex* pindexPrev, const uint256& kerne
     return Hash(ss);
 }
 
-// BTCW kernel protocol
+// kernel protocol
 // coinstake must meet hash target according to the protocol:
 // kernel (input 0) must meet the formula
-//     hash(nStakeModifier + blockFrom.nTime + txPrev.vout.hash + txPrev.vout.n + nTime ) < bnTarget; // nWeight removed to collapse PoS to PoW
+//     hash(nStakeModifier + blockFrom.nTime + txPrev.vout.hash + txPrev.vout.n + nTime + [1,2,...,256]) < bnTarget;
 // this ensures that the chance of getting a coinstake is proportional to the
 // amount of coins one owns.
 // The reason this hash is chosen is the following:
@@ -52,8 +53,6 @@ uint256 ComputeStakeModifier(const CBlockIndex* pindexPrev, const uint256& kerne
 //                  generating coinstake at the same time
 //   nTime: current timestamp
 //   block/tx hash should not be used here as they can be generated in vast
-//   quantities so as to generate blocks faster, degrading the system back into
-//   a proof-of-work situation.
 //
 bool CheckStakeKernelHash(CBlockIndex* pindexPrev, unsigned int nBits, uint32_t blockFromTime, CAmount prevoutValue, const COutPoint& prevout, unsigned int nTimeBlock, uint32_t nNonce, uint256& hashProofOfStake, uint256& targetProofOfStake, bool fPrintProofOfStake)
 {
@@ -73,25 +72,58 @@ bool CheckStakeKernelHash(CBlockIndex* pindexPrev, unsigned int nBits, uint32_t 
 
     uint256 nStakeModifier = pindexPrev->nStakeModifier;
 
-    // Calculate hash
-    CDataStream ss(SER_GETHASH, 0);
-    ss << nStakeModifier;
-    ss << blockFromTime << prevout.hash << prevout.n << nTimeBlock;
-    hashProofOfStake = Hash(ss);
+    // BitcoinPoW (BTCW) fork for more sha256
+    if ( (pindexPrev->nHeight + 1) < BITCOIN_POW256_START_HEIGHT )
+    {
+        // Calculate hash
+        CDataStream ss(SER_GETHASH, 0);
+        ss << nStakeModifier;
+        ss << blockFromTime << prevout.hash << prevout.n << nTimeBlock;
+        hashProofOfStake = Hash(ss);
 
-    if (fPrintProofOfStake) {
-        LogPrint(BCLog::COINSTAKE, "CheckStakeKernelHash() : check modifier=%s nTimeBlockFrom=%u nPrevout=%u nTimeBlock=%u hashProof=%s\n",
-            nStakeModifier.GetHex().c_str(),
-            blockFromTime, prevout.n, nTimeBlock,
-            hashProofOfStake.ToString());
+        // if (fPrintProofOfStake) {
+        //     LogPrint(BCLog::COINSTAKE, "CheckStakeKernelHash() : check modifier=%s nTimeBlockFrom=%u nPrevout=%u nTimeBlock=%u hashProof=%s\n",
+        //         nStakeModifier.GetHex().c_str(),
+        //         blockFromTime, prevout.n, nTimeBlock,
+        //         hashProofOfStake.ToString());
+        // }
+
+        // Now check if hash meets target protocol
+        arith_uint256 actual = UintToArith256(hashProofOfStake);
+        if (actual <= bnTarget)
+            return true;
+    
+    }
+    else
+    {
+
+        // BitcoinPoW - HARDFORK - Block 23,333 and beyond - add more sha256 PoW
+        // NOTE: Validation needs to see a solution somewhere in the 256 window. It doesn't matter which of the 256
+        //       attempts has the valid solution.
+        for ( volatile int k=1; k<=256; k++ )
+        {
+            // Calculate hash
+            CDataStream ss(SER_GETHASH, 0);
+            ss << nStakeModifier;
+            ss << blockFromTime << prevout.hash << prevout.n << nTimeBlock << k;
+            hashProofOfStake = Hash(ss);
+
+            // if (fPrintProofOfStake) {
+            //     LogPrint(BCLog::COINSTAKE, "CheckStakeKernelHash() : check modifier=%s nTimeBlockFrom=%u nPrevout=%u nTimeBlock=%u hashProof=%s\n",
+            //         nStakeModifier.GetHex().c_str(),
+            //         blockFromTime, prevout.n, nTimeBlock,
+            //         hashProofOfStake.ToString());
+            // }
+
+            // Now check if hash meets target protocol
+            arith_uint256 actual = UintToArith256(hashProofOfStake);
+            if (actual <= bnTarget)
+                return true;
+        }
+
     }
 
-    // Now check if Collapsed proof-of-stake hash meets target protocol
-    arith_uint256 actual = UintToArith256(hashProofOfStake);
-    if (actual > bnTarget)
-        return false;
-
-    return true;
+    return false;
 }
 
 // Check kernel hash target and coinstake signature
@@ -109,9 +141,9 @@ bool CheckProofOfStake(CBlockIndex* pindexPrev, BlockValidationState& state, con
         return state.Invalid(BlockValidationResult::BLOCK_INVALID_HEADER, "bad-stake-prevout-doesnotexist", 
                             strprintf("CheckProofOfStake() : Stake prevout does not exist %s", txin.prevout.hash.ToString()));
 
-    if (pindexPrev->nHeight + 1 - coinPrev.nHeight < COINBASE_MATURITY)
+    if (pindexPrev->nHeight + 1 - coinPrev.nHeight < COINBASE_MATURITY(pindexPrev->nHeight+1))
         return state.Invalid(BlockValidationResult::BLOCK_INVALID_HEADER, "bad-stake-prevout-notmature", 
-                            strprintf("CheckProofOfStake() : Stake prevout is not mature, expecting %i and only matured to %i", COINBASE_MATURITY, pindexPrev->nHeight + 1 - coinPrev.nHeight));
+                            strprintf("CheckProofOfStake() : Stake prevout is not mature, expecting %i and only matured to %i", COINBASE_MATURITY(pindexPrev->nHeight+1), pindexPrev->nHeight + 1 - coinPrev.nHeight));
     
     CBlockIndex* blockFrom = pindexPrev->GetAncestor(coinPrev.nHeight);
     if (!blockFrom) 
@@ -242,7 +274,7 @@ bool CheckKernel(CBlockIndex* pindexPrev, unsigned int nBits, uint32_t nTimeBloc
             }
         }
 
-        if(pindexPrev->nHeight + 1 - coinPrev.nHeight < COINBASE_MATURITY){
+        if(pindexPrev->nHeight + 1 - coinPrev.nHeight < COINBASE_MATURITY(pindexPrev->nHeight+1)){
             return error("CheckKernel(): Coin not matured");
         }
         CBlockIndex* blockFrom = pindexPrev->GetAncestor(coinPrev.nHeight);
@@ -278,7 +310,7 @@ void CacheKernel(std::map<COutPoint, CStakeCache>& cache, const COutPoint& prevo
         return;
     }
 
-    if(pindexPrev->nHeight + 1 - coinPrev.nHeight < COINBASE_MATURITY){
+    if(pindexPrev->nHeight + 1 - coinPrev.nHeight < COINBASE_MATURITY(pindexPrev->nHeight+1)){
         return;
     }
     CBlockIndex* blockFrom = pindexPrev->GetAncestor(coinPrev.nHeight);

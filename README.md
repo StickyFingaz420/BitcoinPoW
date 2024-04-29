@@ -15,6 +15,12 @@ BitcoinPoW is Bitcoin using proof of work(PoW) and proof of transactions (PoT) t
 Combining PoW and PoT results in a highly mining distributed system where every wallet is forced to solo mine. 
 ----------------
 
+The BTCW Hard Fork
+----------------
+BTCW is too close to a PoS system, where users just let their ONE computer fill up with utxos.
+The hard fork pushes BTCW a little closer to PoW territory by making it 256 times quicker to maximize loading on a computer.
+```
+
 Satoshi's original Bitcoin has become very mining centralized. One of the longest active BTC developers
 (Luke Dashjr) has recently posted his worry on his new mining pool site www.ocean.xyz
 

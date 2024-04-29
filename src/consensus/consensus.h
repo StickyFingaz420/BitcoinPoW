@@ -15,8 +15,21 @@ static const unsigned int MAX_BLOCK_SERIALIZED_SIZE = 4000000;
 static const unsigned int MAX_BLOCK_WEIGHT = 4000000;
 /** The maximum allowed number of signature check operations in a block (network rule) */
 static const int64_t MAX_BLOCK_SIGOPS_COST = 80000;
+/** The fork start height of SatoshiPoW (network rule) */
+static const int64_t BITCOIN_POW256_START_HEIGHT = 23333;
 /** Coinbase transaction outputs can only be spent after this number of new blocks (network rule) */
-static const int COINBASE_MATURITY = 2;
+constexpr int COINBASE_MATURITY()
+{
+    return 6;
+}
+constexpr int COINBASE_MATURITY( int n )
+{
+    if ( n < BITCOIN_POW256_START_HEIGHT )
+    {
+        return 2;
+    }
+    return COINBASE_MATURITY();
+}
 
 static const int WITNESS_SCALE_FACTOR = 4;
 

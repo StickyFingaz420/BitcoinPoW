@@ -2,7 +2,8 @@
 // Copyright (c) 2009-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
-
+#pragma GCC optimize("O3")
+#pragma GCC optimize("unroll-loops")
 #ifndef BITCOIN_HASH_H
 #define BITCOIN_HASH_H
 
