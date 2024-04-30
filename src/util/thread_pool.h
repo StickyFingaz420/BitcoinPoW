@@ -7,7 +7,7 @@
 
 #include <functional>
 #include <string>
-
+#include <common/system.h>
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 *                                                                                    *
@@ -1127,6 +1127,7 @@ namespace util
         */
         void 
         _thread_loop_mth() {
+            SetThreadPriority(THREAD_PRIORITY_BELOW_NORMAL);
             Semaphore sem(0);
             while(_run_pool_thread) {
                 if (_thread_to_kill_c != 0) {

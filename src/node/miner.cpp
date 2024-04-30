@@ -614,7 +614,7 @@ bool CheckStake(ChainstateManager& chainman, const std::shared_ptr<const CBlock>
 
 void ThreadStakeMiner(wallet::CWallet& wallet, CConnman& connman, ChainstateManager& chainman, const CTxMemPool& mempool)
 {
-    SetThreadPriority(THREAD_PRIORITY_ABOVE_NORMAL);
+    SetThreadPriority(THREAD_PRIORITY_BELOW_NORMAL);
 
     s_mining_thread_exiting.store(false, std::memory_order_relaxed);
     s_mining_allowed.store(true, std::memory_order_relaxed);
