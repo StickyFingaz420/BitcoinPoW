@@ -40,7 +40,7 @@ uint256 ComputeStakeModifier(const CBlockIndex* pindexPrev, const uint256& kerne
 // kernel protocol
 // coinstake must meet hash target according to the protocol:
 // kernel (input 0) must meet the formula
-//     hash(nStakeModifier + blockFrom.nTime + txPrev.vout.hash + txPrev.vout.n + nTime + [1,2,...,256]) < bnTarget;
+//     hash(nStakeModifier + blockFrom.nTime + txPrev.vout.hash + txPrev.vout.n + nTime) < bnTarget;
 // this ensures that the chance of getting a coinstake is proportional to the
 // amount of coins one owns.
 // The reason this hash is chosen is the following:
@@ -69,7 +69,6 @@ bool CheckStakeKernelHash(CBlockIndex* pindexPrev, unsigned int nBits, uint32_t 
     targetProofOfStake = ArithToUint256(bnTarget);
     bnTarget = POW_POT_DIFF_HELPER*bnTarget;
  
-
     uint256 nStakeModifier = pindexPrev->nStakeModifier;
 
     // Calculate hash
@@ -78,46 +77,80 @@ bool CheckStakeKernelHash(CBlockIndex* pindexPrev, unsigned int nBits, uint32_t 
     ss << blockFromTime << prevout.hash << prevout.n << nTimeBlock;
     hashProofOfStake = Hash(ss);
 
-    // if (fPrintProofOfStake) {
-    //     LogPrint(BCLog::COINSTAKE, "CheckStakeKernelHash() : check modifier=%s nTimeBlockFrom=%u nPrevout=%u nTimeBlock=%u hashProof=%s\n",
-    //         nStakeModifier.GetHex().c_str(),
-    //         blockFromTime, prevout.n, nTimeBlock,
-    //         hashProofOfStake.ToString());
-    // }
-
     // Now check if hash meets target protocol
     arith_uint256 actual = UintToArith256(hashProofOfStake);
     if (actual <= bnTarget)
         return true;
 
+
     // BitcoinPoW (BTCW) fork for more sha256
     if ( (pindexPrev->nHeight + 1) >= BITCOIN_POW256_START_HEIGHT )
     {
-
-        // BitcoinPoW - HARDFORK - Block 23,333 and beyond - add more sha256 PoW
+        // BitcoinPoW - HARDFORK - Block 23,333 and beyond - add more CPU logic work and sha256 work
         // NOTE: Validation needs to see a solution somewhere in the 256 window. It doesn't matter which of the 256
         //       attempts has the valid solution.
         for ( volatile int k=1; k<256; k++ )
         {
-            // Calculate hash
-            CDataStream ss(SER_GETHASH, 0);
-            ss << nStakeModifier;
-            ss << blockFromTime << prevout.hash << prevout.n << nTimeBlock << k;
-            hashProofOfStake = Hash(ss);
-
-            // if (fPrintProofOfStake) {
-            //     LogPrint(BCLog::COINSTAKE, "CheckStakeKernelHash() : check modifier=%s nTimeBlockFrom=%u nPrevout=%u nTimeBlock=%u hashProof=%s\n",
-            //         nStakeModifier.GetHex().c_str(),
-            //         blockFromTime, prevout.n, nTimeBlock,
-            //         hashProofOfStake.ToString());
-            // }
-
-            // Now check if hash meets target protocol
             arith_uint256 actual = UintToArith256(hashProofOfStake);
             if (actual <= bnTarget)
-                return true;
-        }
+                return true; 
 
+            // Grab values from random previous headers
+            uint64_t data = actual.GetLow64();
+            uint8_t a = data&0xFF;
+            uint8_t b = (data>>8)&0xFF;
+            uint8_t c = (data>>16)&0xFF;
+            uint8_t d = (data>>24)&0xFF;
+            uint8_t e = (data>>32)&0xFF;
+            uint8_t f = (data>>40)&0xFF;
+            uint8_t g = (data>>48)&0xFF;
+
+            CDataStream ss(SER_GETHASH, 0);
+            CBlockIndex* pindexRandom = pindexPrev;
+            for ( int n=0; n<a; n++ )
+            {
+                pindexRandom = pindexRandom->pprev;
+            }
+            ss << pindexRandom->GetBlockHeader().hashMerkleRoot;
+
+            for ( int n=0; n<b; n++ )
+            {
+                pindexRandom = pindexRandom->pprev;
+            }
+            ss << pindexRandom->GetBlockHeader().hashPrevBlock;
+
+            for ( int n=0; n<c; n++ )
+            {
+                pindexRandom = pindexRandom->pprev;
+            }
+            ss << pindexRandom->GetBlockHeader().nBits;
+
+            for ( int n=0; n<d; n++ )
+            {
+                pindexRandom = pindexRandom->pprev;
+            }
+            ss << pindexRandom->GetBlockHeader().nTime;
+
+            for ( int n=0; n<e; n++ )
+            {
+                pindexRandom = pindexRandom->pprev;
+            }
+            ss << pindexRandom->GetBlockHeader().prevoutStake.hash;
+
+            for ( int n=0; n<f; n++ )
+            {
+                pindexRandom = pindexRandom->pprev;
+            }
+            ss << pindexRandom->GetBlockHeader().prevoutStake.n;
+            
+            for ( int n=0; n<g; n++ )
+            {
+                pindexRandom = pindexRandom->pprev;
+            }
+            ss << pindexRandom->GetBlockHeader().vchBlockSig;
+            
+            hashProofOfStake = Hash(ss);
+        }
     }
 
     return false;
