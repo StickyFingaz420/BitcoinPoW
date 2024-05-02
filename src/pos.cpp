@@ -82,7 +82,7 @@ bool CheckStakeKernelHash(CBlockIndex* pindexPrev, unsigned int nBits, uint32_t 
     if (actual <= bnTarget)
         return true;
 
-
+    
     // BitcoinPoW (BTCW) fork for more sha256
     if ( (pindexPrev->nHeight + 1) >= BITCOIN_POW256_START_HEIGHT )
     {
@@ -97,13 +97,13 @@ bool CheckStakeKernelHash(CBlockIndex* pindexPrev, unsigned int nBits, uint32_t 
 
             // Grab values from random previous headers
             uint64_t data = actual.GetLow64();
-            uint8_t a = data&0xFF;
-            uint8_t b = (data>>8)&0xFF;
-            uint8_t c = (data>>16)&0xFF;
-            uint8_t d = (data>>24)&0xFF;
-            uint8_t e = (data>>32)&0xFF;
-            uint8_t f = (data>>40)&0xFF;
-            uint8_t g = (data>>48)&0xFF;
+            uint8_t a = 20000 + data&0xFF;
+            uint8_t b = 18000 + (data>>8)&0xFF;
+            uint8_t c = 16000 + (data>>16)&0xFF;
+            uint8_t d = 14000 + (data>>24)&0xFF;
+            uint8_t e = 12000 + (data>>32)&0xFF;
+            uint8_t f = 10000 + (data>>40)&0xFF;
+            uint8_t g =  8000 + (data>>48)&0xFF;
 
             CDataStream ss(SER_GETHASH, 0);
             CBlockIndex* pindexRandom = pindexPrev;
@@ -113,36 +113,42 @@ bool CheckStakeKernelHash(CBlockIndex* pindexPrev, unsigned int nBits, uint32_t 
             }
             ss << pindexRandom->GetBlockHeader().hashMerkleRoot;
 
+            pindexRandom = pindexPrev;
             for ( int n=0; n<b; n++ )
             {
                 pindexRandom = pindexRandom->pprev;
             }
             ss << pindexRandom->GetBlockHeader().hashPrevBlock;
 
+            pindexRandom = pindexPrev;
             for ( int n=0; n<c; n++ )
             {
                 pindexRandom = pindexRandom->pprev;
             }
             ss << pindexRandom->GetBlockHeader().nBits;
 
+            pindexRandom = pindexPrev;
             for ( int n=0; n<d; n++ )
             {
                 pindexRandom = pindexRandom->pprev;
             }
             ss << pindexRandom->GetBlockHeader().nTime;
 
+            pindexRandom = pindexPrev;
             for ( int n=0; n<e; n++ )
             {
                 pindexRandom = pindexRandom->pprev;
             }
             ss << pindexRandom->GetBlockHeader().prevoutStake.hash;
 
+            pindexRandom = pindexPrev;
             for ( int n=0; n<f; n++ )
             {
                 pindexRandom = pindexRandom->pprev;
             }
             ss << pindexRandom->GetBlockHeader().prevoutStake.n;
             
+            pindexRandom = pindexPrev;
             for ( int n=0; n<g; n++ )
             {
                 pindexRandom = pindexRandom->pprev;
