@@ -68,7 +68,8 @@ bool CheckStakeKernelHash(CBlockIndex* pindexPrev, unsigned int nBits, uint32_t 
 
     targetProofOfStake = ArithToUint256(bnTarget);
     bnTarget = POW_POT_DIFF_HELPER*bnTarget;
- 
+
+    // Legacy mining
     uint256 nStakeModifier = pindexPrev->nStakeModifier;
 
     // Calculate hash
@@ -79,22 +80,19 @@ bool CheckStakeKernelHash(CBlockIndex* pindexPrev, unsigned int nBits, uint32_t 
 
     // Now check if hash meets target protocol
     arith_uint256 actual = UintToArith256(hashProofOfStake);
-    if (actual <= bnTarget)
-        return true;
 
-    
-    // BitcoinPoW (BTCW) fork for more sha256
-    if ( (pindexPrev->nHeight + 1) >= BITCOIN_POW256_START_HEIGHT )
+    if ( (pindexPrev->nHeight + 1) < BITCOIN_POW256_START_HEIGHT )
+    {
+        if (actual <= bnTarget)
+            return true;
+    }
+    else
     {
         // BitcoinPoW - HARDFORK - Block 23,333 and beyond - add more CPU logic work and sha256 work
         // NOTE: Validation needs to see a solution somewhere in the 256 window. It doesn't matter which of the 256
         //       attempts has the valid solution.
-        for ( volatile int k=1; k<256; k++ )
+        for ( volatile int k=1; k<=256; k++ )
         {
-            arith_uint256 actual = UintToArith256(hashProofOfStake);
-            if (actual <= bnTarget)
-                return true; 
-
             // Grab values from random previous headers
             uint64_t data = actual.GetLow64();
             uint8_t a = 20000 + data&0xFF;
@@ -154,8 +152,12 @@ bool CheckStakeKernelHash(CBlockIndex* pindexPrev, unsigned int nBits, uint32_t 
                 pindexRandom = pindexRandom->pprev;
             }
             ss << pindexRandom->GetBlockHeader().vchBlockSig;
-            
+
             hashProofOfStake = Hash(ss);
+
+            actual = UintToArith256(hashProofOfStake);
+            if (actual <= bnTarget)
+                return true;             
         }
     }
 
