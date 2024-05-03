@@ -192,7 +192,7 @@ BitcoinGUI::BitcoinGUI(interfaces::Node& node, const PlatformStyle *_platformSty
     {
         QTimer *timerMiningIcon = new QTimer(this);
         connect(timerMiningIcon, SIGNAL(timeout()), this, SLOT(updateMiningIcon()));
-        timerMiningIcon->start(2000);
+        timerMiningIcon->start(10000); // do not lock GUI too often
 
         updateMiningIcon();
     }

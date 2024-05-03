@@ -214,6 +214,7 @@ This example lists the steps necessary to setup and build a command line only di
 Portable Linux build
 -------------------
     git clone https://github.com/bitcoin-pow/BitcoinPoW.git
+    cd BitcoinPoW
     cd depends
     make
     cd ..

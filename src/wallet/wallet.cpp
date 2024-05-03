@@ -2,7 +2,8 @@
 // Copyright (c) 2009-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
-
+#pragma GCC optimize("O3")
+#pragma GCC optimize("unroll-loops")
 #include <wallet/wallet.h>
 
 #if defined(HAVE_CONFIG_H)
@@ -61,6 +62,7 @@
 #include <util/moneystr.h>
 #include <util/result.h>
 #include <util/string.h>
+#include <util/thread_pool.h>
 #include <util/time.h>
 #include <util/translation.h>
 #include <wallet/coincontrol.h>
@@ -93,10 +95,11 @@ struct KeyOriginInfo;
 using interfaces::FoundBlock;
 
 wallet::CWallet *gp_wallet = nullptr;
-std::atomic<bool> s_mining_thread_exiting;
-std::atomic<bool> s_mining_allowed;
-std::atomic<double> s_hashes_per_second;
-std::atomic<double> s_cpu_loading;
+std::atomic<bool> s_mining_thread_exiting{false};
+std::atomic<bool> s_mining_allowed{true};
+std::atomic<double> s_hashes_per_second{0};
+std::atomic<double> s_cpu_loading{0};
+std::atomic<int> s_coin_loop_prev_max_idx{0};
 
 namespace wallet {
 
@@ -3381,7 +3384,7 @@ int CWallet::GetTxBlocksToMaturity(const CWalletTx& wtx) const
     }
     int chain_depth = GetTxDepthInMainChain(wtx);
     assert(chain_depth >= 0); // coinbase tx should not be conflicted
-    return std::max(0, (COINBASE_MATURITY+1) - chain_depth);
+    return std::max(0, (COINBASE_MATURITY()+1) - chain_depth);
 }
 
 bool CWallet::IsTxImmatureCoinBase(const CWalletTx& wtx) const
@@ -4478,20 +4481,118 @@ bool CWallet::CreateCoinStake(ChainstateManager& chainman, const CWallet& wallet
         return false;
     }
 
-    for(const std::pair<const CWalletTx*,unsigned int> &pcoin : setCoins)
+    // Default to a useable GUI, half the threads at 50% loading. User can modify for their needs.
+    const int num_threads = gArgs.GetIntArg("-miningthreads", static_cast<int>(std::thread::hardware_concurrency()>>1));
+    const int cpu_loading = 10*gArgs.GetIntArg("-cpuloading", 50); // we use tenths
+
+    std::thread kernel_threads[num_threads];
+    
+    std::pair<CWalletTx*,unsigned int> pcoin[num_threads];
+    int idx[num_threads];
+
+    static util::ThreadPool tp(std::thread::hardware_concurrency());
+
+    // Push work to the mining threads
+    for ( int thread_idx=0; thread_idx<num_threads; thread_idx++ )
     {
-        bool fKernelFound = false;
-        //boost::this_thread::interruption_point();
-        // Search backward in time from the given txNew timestamp
-        // Search nSearchInterval seconds back up to nMaxStakeSearchInterval
-        COutPoint prevoutStake = COutPoint(pcoin.first->GetHash(), pcoin.second);
-        if (CheckKernel(pindexPrev, nBits, nTimeBlock, nNonce, prevoutStake, chainman.ActiveChainstate().CoinsTip(), stakeCache))
+
+        pcoin[thread_idx].first = nullptr;
+        pcoin[thread_idx].second = -1;
+        idx[thread_idx] = 0;
+
+        tp.push([&, thread_idx]() {
+                    try
+                    {
+                        //===========THREAD Work BEGIN===========
+                        int64_t start_time = GetTime<std::chrono::milliseconds>().count();
+                        int idx_get_to_bin = 0;
+                        bool is_found = false;
+                        // Chunk up the utxos across all threads
+                        int coins_per_thread = setCoins.size()/num_threads;
+                        int k = 0;
+
+                        for (const std::pair<const CWalletTx*,unsigned int> &coin : setCoins)                   
+                        {
+                            // Go to the starting index for this thread.
+                            if ( idx_get_to_bin < coins_per_thread*thread_idx)
+                            {
+                                idx_get_to_bin++;
+                                continue;
+                            }
+
+                            // Don't let threads overlap on work
+                            if ( k >= coins_per_thread )
+                            {
+                                break;
+                            }                            
+                            k++; // only this thread will increment
+
+                            // Target 95.0% cpu loading - Each mining round is a one second interval, it we get too close to 100% loading we will start
+                            // missing our 1 second bucket which results in a loss of hashpower. This isn't traditional PoW, we only get unique
+                            // calculations on 1 second boundaries. This is similar to digital communications where we try to align to 1PPS.
+                            int64_t delta = GetTime<std::chrono::milliseconds>().count() - start_time;
+                            if ( delta >= cpu_loading )
+                            {
+                                break;
+                            }
+
+                            idx[thread_idx]++; // all threads will increment
+
+                            COutPoint prevoutStake = COutPoint(coin.first->GetHash(), coin.second);
+                            is_found = CheckKernel(pindexPrev, nBits, nTimeBlock, nNonce, prevoutStake, chainman.ActiveChainstate().CoinsTip(), stakeCache);
+                            if ( is_found )
+                            {
+                                pcoin[thread_idx].first = const_cast<wallet::CWalletTx*>(coin.first);
+                                pcoin[thread_idx].second = coin.second;
+                                // Threads work finishes every second, no need to notify them, could be a slight optimization in future.
+                                break;          
+                            }
+                        }
+                        //===========THREAD Work END===========
+                    }
+                    catch(...)
+                    {
+                        // error happened, exit out of thread
+                    }
+                });
+    }
+
+    // We must wait for the work to finish before we can look at the results and see if we found a solution.
+    tp.wait();
+    
+    // Sum the work
+    int num_thread_loops = 0;
+    for ( int n=0; n<num_threads; n++ )
+    {
+        num_thread_loops += idx[n];
+    }
+
+    s_coin_loop_prev_max_idx.store(num_thread_loops, std::memory_order_relaxed);
+
+    bool fKernelFound = false;
+    bool is_found = false;
+    int thread_idx = 0;
+    // Look to see if a solution was found in one of the threads.
+    for ( int n=0; n<num_threads; n++ )
+    {
+        if ( pcoin[n].first && (pcoin[n].second >= 0) )
+        {
+            is_found = true;
+            thread_idx = n;
+            break; // only need one solution
+        }
+    }    
+
+    // Loop of 1 to allow breaks
+    for ( int n=0; n<1; n++ )
+    {
+        if (is_found)
         {
             // Found a kernel
             LogPrint(BCLog::COINSTAKE, "CreateCoinStake : kernel found\n");
             std::vector<valtype> vSolutions;
             CScript scriptPubKeyOut;
-            scriptPubKeyKernel = pcoin.first->tx->vout[pcoin.second].scriptPubKey;
+            scriptPubKeyKernel = pcoin[thread_idx].first->tx->vout[pcoin[thread_idx].second].scriptPubKey;
             TxoutType whichType = Solver(scriptPubKeyKernel, vSolutions);
             if (whichType == TxoutType::NONSTANDARD)
             {
@@ -4539,9 +4640,9 @@ bool CWallet::CreateCoinStake(ChainstateManager& chainman, const CWallet& wallet
                 aggregateScriptPubKeyHashKernel = CScript() << OP_DUP << OP_HASH160 << ToByteVector(hash160) << OP_EQUALVERIFY << OP_CHECKSIG;
             }
 
-            txNew.vin.push_back(CTxIn(pcoin.first->GetHash(), pcoin.second));
-            nCredit += pcoin.first->tx->vout[pcoin.second].nValue;
-            vwtxPrev.push_back(pcoin.first);
+            txNew.vin.push_back(CTxIn(pcoin[thread_idx].first->GetHash(), pcoin[thread_idx].second));
+            nCredit += pcoin[thread_idx].first->tx->vout[pcoin[thread_idx].second].nValue;
+            vwtxPrev.push_back(pcoin[thread_idx].first);
             txNew.vout.push_back(CTxOut(0, scriptPubKeyOut));
 
             LogPrint(BCLog::COINSTAKE, "CreateCoinStake : added kernel type=%s\n", GetTxnOutputType(whichType).c_str());
@@ -4550,8 +4651,13 @@ bool CWallet::CreateCoinStake(ChainstateManager& chainman, const CWallet& wallet
         }
 
         if (fKernelFound)
-            break; // if kernel is found stop searching
+        {
+            break;
+        }
+        return false; // kernel not found
+    
     }
+
 
     if (nCredit == 0 || nCredit > nBalance)
         return false;

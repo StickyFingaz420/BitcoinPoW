@@ -87,6 +87,7 @@ extern std::atomic<bool> s_mining_thread_exiting;
 extern std::atomic<bool> s_mining_allowed;
 extern std::atomic<double> s_hashes_per_second;
 extern std::atomic<double> s_cpu_loading;
+extern std::atomic<int> s_coin_loop_prev_max_idx;
 
 namespace wallet {
 struct WalletContext;

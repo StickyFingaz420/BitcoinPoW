@@ -115,7 +115,7 @@ public:
         consensus.nMinerConfirmationWindow = 2016; // nPowTargetTimespan / nPowTargetSpacing
         consensus.nLastPOWBlock = 10;
         consensus.nEnableHeaderSignatureHeight = 0;
-        consensus.nCheckpointSpan = COINBASE_MATURITY;
+        consensus.nCheckpointSpan = COINBASE_MATURITY();
 
         consensus.fPowAllowMinDifficultyBlocks = false;
         consensus.fPowNoRetargeting = false;
@@ -133,7 +133,7 @@ public:
         consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].min_activation_height = 0; // Dec 2023
 
         // The best chain should have at least this much work. - getblockchaininfo
-        consensus.nMinimumChainWork = uint256S("0x00000000000000000000000000000000000000000000001c26335955d6a04722");
+        consensus.nMinimumChainWork = uint256S("0x00000000000000000000000000000000000000000000004f035d8e9ebf9aef4c");
 
         // By default assume that the signatures in ancestors of this block are valid.
         consensus.defaultAssumeValid = uint256S("00000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
@@ -148,9 +148,9 @@ public:
         pchMessageStart[2] = 0xb4;
         pchMessageStart[3] = 0xd9;
         nDefaultPort = 8555;
-        nPruneAfterHeight = 8000;
-        m_assumed_blockchain_size = 6;
-        m_assumed_chain_state_size = 5;
+        nPruneAfterHeight = 1000000;
+        m_assumed_blockchain_size = 30;
+        m_assumed_chain_state_size = 30;
 
         uint32_t nTime=1701708401;
         uint32_t nNonce=1108068075;
@@ -232,6 +232,9 @@ public:
                 { 6060, uint256S("0xce046f1a67958b6d4acbc2a0ed6d194d7e4ed231232a6a146b7ff8d94a8b45c3")},
                 { 10515, uint256S("0xdd8ff6535d448ecc560882d95ead78272c1a7a6da6b86150e762b33b5c6f8650")},
                 { 14180, uint256S("0xef939cd95e947bd72357b754dd75503347b80fbb68a6435b0da7ecdea1da3ae2")},
+                { 21111, uint256S("0x7067cd7104e32708f4094cf626c4afcdee8af1a76a5969daa95122b2c0346e5a")},
+                // BitcoinPoW to More PoW fork
+                //{ 23333 uint256S("0x????")},
             }
         };
 
@@ -241,9 +244,9 @@ public:
 
         chainTxData = ChainTxData{
             // Data from RPC: getchaintxstats
-            /* nTime    */ 1710090556,
-            /* nTxCount */ 17492862,
-            /* dTxRate  */ 0.3191135464352717,
+            /* nTime    */ 1714362313,
+            /* nTxCount */ 18749063,
+            /* dTxRate  */ 0.2879754883092357,
         };
     }
 };
@@ -279,7 +282,7 @@ public:
         consensus.nMinerConfirmationWindow = 2016; // nPowTargetTimespan / nPowTargetSpacing
         consensus.nLastPOWBlock = 10;
         consensus.nEnableHeaderSignatureHeight = 0;
-        consensus.nCheckpointSpan = COINBASE_MATURITY;
+        consensus.nCheckpointSpan = COINBASE_MATURITY();
 
         consensus.fPowAllowMinDifficultyBlocks = false;
         consensus.fPowNoRetargeting = false;

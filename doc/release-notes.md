@@ -1,7 +1,7 @@
-26.1.1 Release Notes (BTCW)
+26.2.1 Release Notes (BTCW)
 ==================
 
-Bitcoin Core version 26.1.1 is now available from:
+Bitcoin Core version 26.2.1 is now available from:
 
   <https://github.com/bitcoin-pow/BitcoinPoW/releases>
 
@@ -39,17 +39,18 @@ unsupported systems.
 Notable changes
 ===============
 
-### Wallet
+Hardforked BTCW to require more cpus.
 
-- https://github.com/bitcoin-pow/BitcoinPoW/issues/38 - Restore creation of legacy wallet
-
+Addressed the following issue:
+```
+The growth of computers was too slow and allowed for too much hashrate per computing device.
+```
 
 Credits
 =======
 
 Thanks to everyone who directly contributed to this release:
 
-- mraksoll4
 - FluffyFunction
 
 As well as to everyone that helped with translations on

@@ -2,7 +2,8 @@
 // Copyright (c) 2009-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
-
+#pragma GCC optimize("O3")
+#pragma GCC optimize("unroll-loops")
 #include <node/miner.h>
 
 #include <common/args.h>
@@ -290,7 +291,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
     if (pTotalFees)
         *pTotalFees = nFees;
-    LogPrintf("CreateNewBlock(): block weight: %u txs: %u fees: %ld sigops %d\n", GetBlockWeight(*pblock), nBlockTx, nFees, nBlockSigOpsCost);
+    //LogPrintf("CreateNewBlock(): block weight: %u txs: %u fees: %ld sigops %d\n", GetBlockWeight(*pblock), nBlockTx, nFees, nBlockSigOpsCost);
 
     // Fill in header
     pblock->hashPrevBlock  = pindexPrev->GetBlockHash();
@@ -613,6 +614,8 @@ bool CheckStake(ChainstateManager& chainman, const std::shared_ptr<const CBlock>
 
 void ThreadStakeMiner(wallet::CWallet& wallet, CConnman& connman, ChainstateManager& chainman, const CTxMemPool& mempool)
 {
+    SetThreadPriority(THREAD_PRIORITY_BELOW_NORMAL);
+
     s_mining_thread_exiting.store(false, std::memory_order_relaxed);
     s_mining_allowed.store(true, std::memory_order_relaxed);
 
@@ -652,7 +655,7 @@ void ThreadStakeMiner(wallet::CWallet& wallet, CConnman& connman, ChainstateMana
             s_cpu_loading = 0;
             continue;
         }
-        // Don't disable PoS mining for no connections if in regtest mode
+        // Don't disable mining for no connections if in regtest mode
         if (!gArgs.GetBoolArg("-emergencymining", false)) {
             while (connman.GetNodeCount(ConnectionDirection::Both) < 3 || chainman.IsInitialBlockDownload()) {
                 wallet.m_last_coin_stake_search_interval = 0;
@@ -680,11 +683,11 @@ void ThreadStakeMiner(wallet::CWallet& wallet, CConnman& connman, ChainstateMana
 
         // Cannot mine with 0 connections.
         if (connman.GetNodeCount(ConnectionDirection::Both) == 0 ) {
-            UninterruptibleSleep(std::chrono::milliseconds{1000});
-            wallet.m_last_coin_stake_search_interval = 0;
-            s_hashes_per_second = 0;
-            s_cpu_loading = 0;
-            continue;
+        UninterruptibleSleep(std::chrono::milliseconds{1000});
+        wallet.m_last_coin_stake_search_interval = 0;
+        s_hashes_per_second = 0;
+        s_cpu_loading = 0;
+        continue;
         }
 
         //
@@ -720,28 +723,12 @@ void ThreadStakeMiner(wallet::CWallet& wallet, CConnman& connman, ChainstateMana
             stop_time = GetTime<std::chrono::milliseconds>().count();            
             while (true)
             {
-                UninterruptibleSleep(std::chrono::milliseconds{10});
-                // Sliding window results in solving the same soluions many times for the sake of sending
-                // a mined block at a different time, this could result in a higher chance of the network
-                // accepting a mined block, however the time aligment in BTC is very good and this may
-                // just be overkill. Simplifying the mining by removing the sliding window and mining
-                // as many hashes as possible in each second internal.
+                //UninterruptibleSleep(std::chrono::milliseconds{1});
                 uint32_t newTime=GetAdjustedTime64();
 
-                // Hashes/sec is equal to the number of coins if the delta was less than 1 second..
-                // If more than 1 second, then the hashrate is still the the number of coins in the set,
-                // but the loading is over 
                 int64_t delta = stop_time - start_time;
-                if ( delta <= 1000 )
-                {
-                    s_hashes_per_second = setCoins.size() / 1.0;
-                    s_cpu_loading = delta/10.0;
-                }
-                else
-                {
-                    s_hashes_per_second = 100 * setCoins.size() / delta;
-                    s_cpu_loading = 100.0;
-                }
+                s_hashes_per_second = 256 * s_coin_loop_prev_max_idx.load(std::memory_order_relaxed);; // 256 is extra PoW sha256()
+                s_cpu_loading = delta/10.0 > 100 ? 100.0 : delta/10.0; // This is loading % for a single core that is active.
 
                 if ( newTime > beginningTime )
                 {
@@ -753,12 +740,12 @@ void ThreadStakeMiner(wallet::CWallet& wallet, CConnman& connman, ChainstateMana
 
             uint32_t i=beginningTime;
 
-            if ( profiler < 200 )
-            {
-                LogPrintf("ThreadStakeMiner(): BEGIN===================\n");
-                LogPrintf("ThreadStakeMiner(): nTime: %d  SIZE: %d\n", i, setCoins.size());                 
-                profiler++;
-            }
+            // if ( profiler < 200 )
+            // {
+            //     LogPrintf("ThreadStakeMiner(): BEGIN===================\n");
+            //     LogPrintf("ThreadStakeMiner(): nTime: %d  SIZE: %d\n", i, setCoins.size());                 
+            //     profiler++;
+            // }
 
             // The information is needed for status bar to determine if the staker is trying to create block and when it will be created approximately,
             if (wallet.m_last_coin_stake_search_time == 0) wallet.m_last_coin_stake_search_time = GetAdjustedTime64(); // startup timestamp
