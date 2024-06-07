@@ -91,67 +91,37 @@ bool CheckStakeKernelHash(CBlockIndex* pindexPrev, unsigned int nBits, uint32_t 
         // BitcoinPoW - HARDFORK - Block 23,333 and beyond - add more CPU logic work and sha256 work
         // NOTE: Validation needs to see a solution somewhere in the 256 window. It doesn't matter which of the 256
         //       attempts has the valid solution.
+        int h = ChainActive().Height();
+        uint64_t data = 0;
+        uint16_t a = 0;
+        uint16_t b = 0;
+        uint16_t c = 0;
+        uint16_t d = 0;
+        uint16_t e = 0;
+        uint16_t f = 0;
+        uint16_t g = 0;
+        auto& chain_active = gp_chainman->m_active_chainstate->m_chain;
         for ( volatile int k=1; k<=256; k++ )
         {
             // Grab values from random previous headers
-            uint64_t data = actual.GetLow64();
-            uint8_t a = 20000 + data&0xFF;
-            uint8_t b = 18000 + (data>>8)&0xFF;
-            uint8_t c = 16000 + (data>>16)&0xFF;
-            uint8_t d = 14000 + (data>>24)&0xFF;
-            uint8_t e = 12000 + (data>>32)&0xFF;
-            uint8_t f = 10000 + (data>>40)&0xFF;
-            uint8_t g =  8000 + (data>>48)&0xFF;
+            data = actual.GetLow64();
+            a = (20000 + (data>>0))&0xFF;
+            b = (18000 + (data>>8))&0xFF;
+            c = (16000 + (data>>16))&0xFF;
+            d = (14000 + (data>>24))&0xFF;
+            e = (12000 + (data>>32))&0xFF;
+            f = (10000 + (data>>40))&0xFF;
+            g = ( 8000 + (data>>48))&0xFF;
 
             CDataStream ss(SER_GETHASH, 0);
-            CBlockIndex* pindexRandom = pindexPrev;
-            for ( int n=0; n<a; n++ )
-            {
-                pindexRandom = pindexRandom->pprev;
-            }
-            ss << pindexRandom->GetBlockHeader().hashMerkleRoot;
 
-            pindexRandom = pindexPrev;
-            for ( int n=0; n<b; n++ )
-            {
-                pindexRandom = pindexRandom->pprev;
-            }
-            ss << pindexRandom->GetBlockHeader().hashPrevBlock;
-
-            pindexRandom = pindexPrev;
-            for ( int n=0; n<c; n++ )
-            {
-                pindexRandom = pindexRandom->pprev;
-            }
-            ss << pindexRandom->GetBlockHeader().nBits;
-
-            pindexRandom = pindexPrev;
-            for ( int n=0; n<d; n++ )
-            {
-                pindexRandom = pindexRandom->pprev;
-            }
-            ss << pindexRandom->GetBlockHeader().nTime;
-
-            pindexRandom = pindexPrev;
-            for ( int n=0; n<e; n++ )
-            {
-                pindexRandom = pindexRandom->pprev;
-            }
-            ss << pindexRandom->GetBlockHeader().prevoutStake.hash;
-
-            pindexRandom = pindexPrev;
-            for ( int n=0; n<f; n++ )
-            {
-                pindexRandom = pindexRandom->pprev;
-            }
-            ss << pindexRandom->GetBlockHeader().prevoutStake.n;
-            
-            pindexRandom = pindexPrev;
-            for ( int n=0; n<g; n++ )
-            {
-                pindexRandom = pindexRandom->pprev;
-            }
-            ss << pindexRandom->GetBlockHeader().vchBlockSig;
+            ss << chain_active[h-a]->GetBlockHeader_hashMerkleRoot() << 
+                chain_active[h-b]->GetBlockHeader_hashPrevBlock() << 
+                chain_active[h-c]->GetBlockHeader_nBits() << 
+                chain_active[h-d]->GetBlockHeader_nTime() <<
+                chain_active[h-e]->GetBlockHeader_prevoutStakehash() << 
+                chain_active[h-f]->GetBlockHeader_prevoutStaken() << 
+                chain_active[h-g]->GetBlockHeader_vchBlockSig();
 
             hashProofOfStake = Hash(ss);
 
