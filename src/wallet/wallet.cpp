@@ -4482,10 +4482,8 @@ bool CWallet::CreateCoinStake(ChainstateManager& chainman, const CWallet& wallet
     }
 
     // Default to a useable GUI, half the threads at 50% loading. User can modify for their needs.
-    const int num_threads = gArgs.GetIntArg("-miningthreads", static_cast<int>(std::thread::hardware_concurrency()>>1));
+    const int num_threads = std::min((int)gArgs.GetIntArg("-miningthreads", static_cast<int>(std::thread::hardware_concurrency()>>1)), (int)std::thread::hardware_concurrency());
     const int cpu_loading = 10*gArgs.GetIntArg("-cpuloading", 50); // we use tenths
-
-    std::thread kernel_threads[num_threads];
     
     std::pair<CWalletTx*,unsigned int> pcoin[num_threads];
     int idx[num_threads];

@@ -118,14 +118,12 @@ static bool CheckBlockSignature(const CBlock& block);
 
 Chainstate *ChainstateActive()
 {
-    LOCK(::cs_main);
     assert(gp_chainman->m_active_chainstate);
     return gp_chainman->m_active_chainstate;
 }
 
 CChain& ChainActive()
 {
-    LOCK(::cs_main);
     return ::ChainstateActive()->m_chain;
 }
 
