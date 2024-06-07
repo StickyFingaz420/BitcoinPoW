@@ -301,6 +301,39 @@ public:
         return block;
     }
 
+    inline uint256 GetBlockHeader_hashPrevBlock() const
+    {
+        return pprev->GetBlockHash();
+    }    
+
+    inline uint256 GetBlockHeader_hashMerkleRoot() const
+    {
+        return hashMerkleRoot;
+    }
+
+    inline uint32_t GetBlockHeader_nTime() const
+    {
+        return nTime;
+    }
+    inline uint32_t GetBlockHeader_nBits() const
+    {
+        return nBits;
+    }
+    inline uint256 GetBlockHeader_prevoutStakehash() const
+    {
+        return prevoutStake.hash;
+    }
+    inline uint32_t GetBlockHeader_prevoutStaken() const
+    {
+        return prevoutStake.n;
+    }
+
+    inline std::vector<unsigned char> GetBlockHeader_vchBlockSig() const
+    {
+        return vchBlockSig;
+    }
+
+
     uint256 GetBlockHash() const
     {
         assert(phashBlock != nullptr);
