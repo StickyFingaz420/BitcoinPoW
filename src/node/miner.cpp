@@ -683,11 +683,11 @@ void ThreadStakeMiner(wallet::CWallet& wallet, CConnman& connman, ChainstateMana
 
         // Cannot mine with 0 connections.
         if (connman.GetNodeCount(ConnectionDirection::Both) == 0 ) {
-        UninterruptibleSleep(std::chrono::milliseconds{1000});
-        wallet.m_last_coin_stake_search_interval = 0;
-        s_hashes_per_second = 0;
-        s_cpu_loading = 0;
-        continue;
+            UninterruptibleSleep(std::chrono::milliseconds{1000});
+            wallet.m_last_coin_stake_search_interval = 0;
+            s_hashes_per_second = 0;
+            s_cpu_loading = 0;
+            continue;
         }
 
         //
@@ -727,7 +727,7 @@ void ThreadStakeMiner(wallet::CWallet& wallet, CConnman& connman, ChainstateMana
                 uint32_t newTime=GetAdjustedTime64();
 
                 int64_t delta = stop_time - start_time;
-                s_hashes_per_second = 256 * s_coin_loop_prev_max_idx.load(std::memory_order_relaxed);; // 256 is extra PoW sha256()
+                s_hashes_per_second = 64 * s_coin_loop_prev_max_idx.load(std::memory_order_relaxed);; // 64 is extra PoW sha256()
                 s_cpu_loading = delta/10.0 > 100 ? 100.0 : delta/10.0; // This is loading % for a single core that is active.
 
                 if ( newTime > beginningTime )
@@ -752,12 +752,19 @@ void ThreadStakeMiner(wallet::CWallet& wallet, CConnman& connman, ChainstateMana
             // nLastCoinStakeSearchInterval > 0 mean that the staker is running
             wallet.m_last_coin_stake_search_interval = i - wallet.m_last_coin_stake_search_time;
 
+            // 
+            uint32_t nNonce{0xFEEDBEEF};
+            if ( (chainman.ActiveChain().Tip()->nHeight+1) >= BITCOIN_ELIMINATE_MINING_POOLS_START_HEIGHT )
+            {
+                nNonce = 0xFEEDBEE1;// v1 fork nonce
+            }
+
             // Try to sign a block (this also checks for a PoS stake)
             pblocktemplate->block.nTime = i;
-            pblocktemplate->block.nNonce = 0xFEEDBEEF; // Proof of Transaction Work                
+            pblocktemplate->block.nNonce = nNonce; // Proof of Transaction Work                
             std::shared_ptr<CBlock> pblock = std::make_shared<CBlock>(pblocktemplate->block);
-
-            if (SignBlock(chainman, pblock, wallet, nTotalFees, i, 0xFEEDBEEF, setCoins)) {
+LogPrintf("START LOOKING FOR POT============================================\n");
+            if (SignBlock(chainman, pblock, wallet, nTotalFees, i, nNonce, setCoins, false)) {
 
                 if (chainman.ActiveChain().Tip()->GetBlockHash() != pblock->hashPrevBlock) {
                     //another block was received while building ours, scrap progress
@@ -767,7 +774,7 @@ void ThreadStakeMiner(wallet::CWallet& wallet, CConnman& connman, ChainstateMana
                 // Create a block that's properly populated with transactions
                 std::unique_ptr<CBlockTemplate> pblocktemplatefilled(
                         BlockAssembler{chainman.ActiveChainstate(), &mempool}.CreateNewBlock(pblock->vtx[1]->vout[1].scriptPubKey, true, &nTotalFees, i));
-                pblocktemplatefilled->block.nNonce = 0xFEEDBEEF; // Proof of Transaction Work
+                pblocktemplatefilled->block.nNonce = nNonce; // Proof of Transaction Work
                 if (!pblocktemplatefilled.get()) {
                     LogPrintf("ThreadStakeMiner(): Failed to create block template; thread exiting...\n");
                     goto DONE_MINING;
@@ -777,9 +784,10 @@ void ThreadStakeMiner(wallet::CWallet& wallet, CConnman& connman, ChainstateMana
                     LogPrintf("ThreadStakeMiner(): Valid future PoS block was orphaned before becoming valid\n");
                     break;
                 }
+LogPrintf("FOUND POT SOLUTION - START LOOKING PoW============================================\n");                
                 // Sign the full block and use the timestamp from earlier for a valid stake
                 std::shared_ptr<CBlock> pblockfilled = std::make_shared<CBlock>(pblocktemplatefilled->block);
-                if (SignBlock(chainman, pblockfilled, wallet, nTotalFees, i, 0xFEEDBEEF, setCoins)) {
+                if (SignBlock(chainman, pblockfilled, wallet, nTotalFees, i, nNonce, setCoins, true)) {
                     // Should always reach here unless we spent too much time processing transactions and the timestamp is now invalid
                     // CheckStake also does CheckBlock and AcceptBlock to propogate it to the network
                     bool validBlock = false;
@@ -804,6 +812,7 @@ void ThreadStakeMiner(wallet::CWallet& wallet, CConnman& connman, ChainstateMana
                     }
                     if (validBlock) {
                         CheckStake(chainman, pblockfilled, wallet);
+                        LogPrintf("FOUND BLOCK============================================\n");
                         // Update the search time when new valid block is created, needed for status bar icon
                         wallet.m_last_coin_stake_search_time = pblockfilled->GetBlockTime();
                     }

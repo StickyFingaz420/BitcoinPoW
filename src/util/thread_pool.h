@@ -2,8 +2,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_UTIL_THREAD_POOL_H
-#define BITCOIN_UTIL_THREAD_POOL_H
+#pragma once
 
 #include <functional>
 #include <string>
@@ -78,11 +77,6 @@
 
 namespace util 
 {    
-    int
-    hwc() {
-        return std::thread::hardware_concurrency();
-    }
-
     /**
     *   Structure of the class:
     *
@@ -1155,6 +1149,3 @@ namespace util
 
 #endif /* __cplusplus */
 
-//} // namespace util
-
-#endif // BITCOIN_UTIL_THREAD_POOL_H

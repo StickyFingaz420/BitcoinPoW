@@ -59,7 +59,7 @@ bool CheckStakeKernelHash(CBlockIndex* pindexPrev, unsigned int nBits, uint32_t 
     if (nTimeBlock < blockFromTime)  // Transaction timestamp violation
         return error("CheckStakeKernelHash() : nTime violation");
 
-    if (nNonce != 0xFEEDBEEF)  // Proof of Transaction Work indicator
+    if ( !((nNonce == 0xFEEDBEEF) || (nNonce == 0xFEEDBEE1)) )  // Proof of Transaction Work indicator
         return error("CheckStakeKernelHash() : nNonce violation");        
 
     // Base target with 0 PoS contribution
@@ -81,6 +81,20 @@ bool CheckStakeKernelHash(CBlockIndex* pindexPrev, unsigned int nBits, uint32_t 
     // Now check if hash meets target protocol
     arith_uint256 actual = UintToArith256(hashProofOfStake);
 
+    int loop_cnt = 64;
+    if ( ((pindexPrev->nHeight + 1) < BITCOIN_ELIMINATE_MINING_POOLS_START_HEIGHT) && ( nNonce == 0xFEEDBEEF ) ) // Hard fork v0
+    {
+        loop_cnt = 256;
+    }
+    else
+    {
+        // Hardfork to eliminate mining pools
+        bnTarget.SetCompact(nBits);
+        targetProofOfStake = ArithToUint256(bnTarget);
+        bnTarget = POW_POT_DIFF_HELPER*bnTarget;
+        bnTarget *= 100;
+    }
+
     if ( (pindexPrev->nHeight + 1) < BITCOIN_POW256_START_HEIGHT )
     {
         if (actual <= bnTarget)
@@ -101,7 +115,7 @@ bool CheckStakeKernelHash(CBlockIndex* pindexPrev, unsigned int nBits, uint32_t 
         uint16_t f = 0;
         uint16_t g = 0;
         auto& chain_active = gp_chainman->m_active_chainstate->m_chain;
-        for ( volatile int k=1; k<=256; k++ )
+        for ( volatile int k=1; k<=loop_cnt; k++ )
         {
             // Grab values from random previous headers
             data = actual.GetLow64();
@@ -259,6 +273,55 @@ bool CheckRecoveredPubKeyFromBlockSignature(CBlockIndex* pindexPrev, const CBloc
             }
         }
     }
+
+    // The fork to eliminate mining pools appends 8 bytes to the signature, remove these 8 bytes and
+    // see if signature matches.
+    if( block.vchBlockSig.size() < 8 ) {
+        return false; // too small and check already failed above
+    }
+
+    // 8 bytes added to signature length tells the nonce number
+    uint64_t nonce_64[8];
+    auto vchBlockSig = block.vchBlockSig;
+
+    // Signatures are about 68 -> 72 bytes
+    if( block.vchBlockSig.size() > 60 )
+    {
+        for( int n=0; n<8; n++)
+        {
+            nonce_64[n] = vchBlockSig.back();
+            vchBlockSig.pop_back();
+        }
+    }
+    else
+    {
+        return false;
+    }
+
+
+    uint256 hash_no_sig = block.GetHashWithoutSign();
+    uint64_t nonce = (nonce_64[7]<<56) | (nonce_64[6]<<48) | (nonce_64[5]<<40) | (nonce_64[4]<<32) | (nonce_64[3]<<24) | (nonce_64[2]<<16) | (nonce_64[1]<<8) | (nonce_64[0]);
+    uint256 mud = ArithToUint256( UintToArith256(hash_no_sig) + arith_uint256(nonce) );
+
+    for(uint8_t recid = 0; recid <= 3; ++recid) {
+        for(uint8_t compressed = 0; compressed < 2; ++compressed) {
+            if(!pubkey.RecoverLaxDER(mud, vchBlockSig, recid, compressed)) {
+                continue;
+            }
+
+            CTxDestination address;
+            TxoutType txType=TxoutType::NONSTANDARD;
+            if(ExtractDestination(coinPrev.out.scriptPubKey, address, &txType)){
+                PKHash* pkhash = std::get_if<PKHash>(&address);
+                if ((txType == TxoutType::PUBKEY || txType == TxoutType::PUBKEYHASH) && pkhash) {
+                    if(PKHash(pubkey.GetID()) == *pkhash) {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+    
 
     return false;
 }
