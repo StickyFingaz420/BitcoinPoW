@@ -2,7 +2,7 @@
 // Copyright (c) 2009-2022 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
-
+#pragma GCC optimize("O3")
 #include <validation.h>
 
 #include <kernel/chain.h>
@@ -56,6 +56,7 @@
 #include <util/rbf.h>
 #include <util/signalinterrupt.h>
 #include <util/strencodings.h>
+#include <util/thread_pool.h>
 #include <util/time.h>
 #include <util/trace.h>
 #include <util/translation.h>
@@ -6443,7 +6444,78 @@ bool CheckBlockSignature(const CBlock& block)
         return false;
     }
 
-    return CPubKey(vchPubKey).Verify(block.GetHashWithoutSign(), block.vchBlockSig);
+    if( block.nNonce == 0xFEEDBEEF )
+    {
+        // Pre fork, original check
+        if ( CPubKey(vchPubKey).Verify(block.GetHashWithoutSign(), block.vchBlockSig) )
+        {
+            return true;
+        }
+    }
+    else if( block.nNonce == 0xFEEDBEE1 )
+    {
+        // New fork to eliminate all mining pools
+        // The key to eliminating mining pools is to have the user do a significant portion of the work.
+        // In the original BTCW, the pool could have the user do most of the work then have the user send
+        // data back to the pool for the pool to sign and complete block generation.
+        // Putting a barrier to this is done by having the user continuously generating a signature and
+        // checking if the hash of the signature meets the difficulty level. The user must have the 
+        // private key to do this. The pool would never hand out a private key as it is dangerous. If the
+        // user does some work and hands the rest back to the pool, the pool has a significant amount of 
+        // work to do in order to find a block and the pool becomes a very unhealthy pool where users 
+        // would be better of just solo mining themselves.
+
+        // 8 bytes added to signature length tells the nonce number
+        uint64_t nonce_64[8];
+
+        std::vector<unsigned char> vchBlockSig;
+        vchBlockSig.clear();
+        vchBlockSig.insert( vchBlockSig.end(), block.vchBlockSig.begin(), block.vchBlockSig.end() ); // copy over the working copy to the block        
+
+        // Signatures are about 68 -> 72 bytes + 8 bytes
+        if ( (vchBlockSig.size() >= 60) && (vchBlockSig.size() <= 84) )
+        {
+            for( int n=0; n<8; n++)
+            {
+                nonce_64[n] = vchBlockSig.back();
+                vchBlockSig.pop_back();
+            }
+        }
+        else
+        {
+            return false;
+        }
+
+        // Signature has now been restored to original size, check it
+        uint256 hash_no_sig = block.GetHashWithoutSign();
+        uint64_t nonce = (nonce_64[7]<<56) | (nonce_64[6]<<48) | (nonce_64[5]<<40) | (nonce_64[4]<<32) | (nonce_64[3]<<24) | (nonce_64[2]<<16) | (nonce_64[1]<<8) | (nonce_64[0]);
+        uint256 mud = ArithToUint256( UintToArith256(hash_no_sig) + arith_uint256(nonce) );
+
+        if ( !CPubKey(vchPubKey).Verify(mud, vchBlockSig) )
+        {
+            // Signature failed, no need to continue checking if signature hash meets target
+            return false;
+        }        
+          
+        arith_uint256 bnTarget;
+        uint256 hashPoW;
+        arith_uint256 actual;
+        bnTarget.SetCompact(block.nBits);
+        bnTarget = SIG_DIFF_ADJ*bnTarget;
+
+        // Calculate hash
+        CDataStream ss(SER_GETHASH, 0);
+        ss << nonce << vchBlockSig;
+        hashPoW = Hash(ss);
+
+        // Now check if hash meets target protocol
+        actual = UintToArith256(hashPoW);
+        if (actual <= bnTarget)
+            return true;             
+        
+    }
+
+    return false;
 }
 
 typedef std::vector<unsigned char> valtype;
@@ -6536,7 +6608,7 @@ bool ChainstateManager::UpdateHashProof(const CBlock& block, BlockValidationStat
 
 #ifdef ENABLE_WALLET
 // novacoin: attempt to generate suitable proof-of-stake
-bool SignBlock(ChainstateManager& chainman, std::shared_ptr<CBlock> pblock, wallet::CWallet& wallet, const CAmount& nTotalFees, uint32_t nTime, uint32_t nNonce, std::set<std::pair<const wallet::CWalletTx*,unsigned int> >& setCoins)
+bool SignBlock(ChainstateManager& chainman, std::shared_ptr<CBlock> pblock, wallet::CWallet& wallet, const CAmount& nTotalFees, uint32_t nTime, uint32_t nNonce, std::set<std::pair<const wallet::CWalletTx*,unsigned int> >& setCoins, bool stop_mining_pools)
 {
     // if we are trying to sign
     //    something except proof-of-stake block template
@@ -6548,6 +6620,7 @@ bool SignBlock(ChainstateManager& chainman, std::shared_ptr<CBlock> pblock, wall
     if (pblock->IsProofOfStake() && !pblock->vchBlockSig.empty())
         return true;
 
+    bool retVal = false;
     CKey key;
     CMutableTransaction txCoinStake(*pblock->vtx[1]);
     uint32_t nTimeBlock = nTime;
@@ -6571,11 +6644,118 @@ bool SignBlock(ChainstateManager& chainman, std::shared_ptr<CBlock> pblock, wall
                 return false;
             }
 
+            if ( !stop_mining_pools )
+            {
+                return true;
+            }
+
+            // Prevent mining pools by signing until a pow is found
+
             // append a signature to our block and ensure that is LowS
-            return key.Sign(pblock->GetHashWithoutSign(), pblock->vchBlockSig);
+            // NOTE:
+            //      vchBlockSig can be quickly changed by changing the MerkleRoot without affecting the original hashproof from CreateCoinStake().
+            //      Using a 64 bit nonce gives everyone an easy way at finding a signature that meets a solution(no need for anyone to try
+            //      to manipulate the txs to update the MerkleRoot quicker).
+            
+            arith_uint256 bnTarget;
+            uint256 hash_no_sig;
+
+            bnTarget.SetCompact(pblock->nBits);
+            bnTarget = SIG_DIFF_ADJ*bnTarget;
+            hash_no_sig = pblock->GetHashWithoutSign();
+
+            const int num_threads = std::thread::hardware_concurrency();
+            static util::ThreadPool tp(num_threads);
+            std::atomic<bool> work_done{false};
+
+            // Push work to the mining threads
+            for ( uint64_t thread_idx=0; thread_idx<num_threads; thread_idx++ )
+            {
+                tp.push([&, thread_idx]() {
+                            uint64_t tidx = thread_idx;
+                            try
+                            {
+                                //===========THREAD Work BEGIN===========
+                                // Chunk up the work across all threads
+                                uint64_t loops_per_thread = (uint64_t)0xFFFFFFFFFFFFFFFF/num_threads;
+                                uint64_t offset = loops_per_thread*tidx;
+                                uint64_t nonce;
+                                std::vector<unsigned char> vchBlockSig;
+                                uint256 hashPoW;
+                                uint256 mud;
+                                arith_uint256 actual;
+
+                                for ( nonce=offset; nonce<(loops_per_thread+offset); nonce++ )
+                                {
+                                    mud = ArithToUint256( UintToArith256(hash_no_sig) + arith_uint256(nonce) );
+
+                                    if ( key.Sign(mud, vchBlockSig) )
+                                    {
+                                        // Calculate hash
+                                        CDataStream ss(SER_GETHASH, 0);
+                                        ss << nonce << vchBlockSig;
+                                        hashPoW = Hash(ss);
+
+                                        // Now check if hash meets target protocol
+                                        actual = UintToArith256(hashPoW);
+                                        if (actual <= bnTarget)
+                                        {
+                                            if ( work_done.load(std::memory_order_relaxed) )
+                                            {
+                                                break;
+                                            }
+                                            work_done.store(true, std::memory_order_relaxed);
+
+                                            pblock->vchBlockSig.clear();
+                                            pblock->vchBlockSig.insert( pblock->vchBlockSig.end(), vchBlockSig.begin(), vchBlockSig.end() ); // copy over the working copy to the block
+                                            // Append the nonce used for nodes to easily verify
+                                            pblock->vchBlockSig.push_back(nonce>>56);
+                                            pblock->vchBlockSig.push_back(nonce>>48);
+                                            pblock->vchBlockSig.push_back(nonce>>40);
+                                            pblock->vchBlockSig.push_back(nonce>>32);                        
+                                            pblock->vchBlockSig.push_back(nonce>>24);
+                                            pblock->vchBlockSig.push_back(nonce>>16);
+                                            pblock->vchBlockSig.push_back(nonce>>8);
+                                            pblock->vchBlockSig.push_back(nonce>>0);
+                                            retVal = true;
+                                            break;
+                                        }
+
+                                        // Check for new block often enough
+                                        if ( (nonce & 0x3FFF) == 0x3FFF )
+                                        {
+                                            // If another thread found a solution, we are done.
+                                            if ( work_done.load(std::memory_order_relaxed) )
+                                            {
+                                                break;
+                                            }                                            
+                                            if (chainman.ActiveChain().Tip()->GetBlockHash() != pblock->hashPrevBlock) {
+                                                //another block was received while building ours, scrap progress
+                                                work_done.store(true, std::memory_order_relaxed);
+                                                break;
+                                            }
+                                        }
+
+                                    }
+                                    else
+                                    {
+                                        break; // failure
+                                    }
+                                }
+                                //===========THREAD Work END===========
+                            }
+                            catch(...)
+                            {
+                                // error happened, exit out of thread
+                            }
+                        });
+            }
+
+            //We must wait for all threads to finish
+            tp.wait();
         }
     }
 
-    return false;
+    return retVal;
 }
 #endif

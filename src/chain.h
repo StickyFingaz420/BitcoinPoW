@@ -395,12 +395,12 @@ public:
 
     bool IsProofOfWork() const
     {
-        return nNonce != 0xFEEDBEEF;
+        return !IsProofOfStake();
     }
 
     bool IsProofOfStake() const
     {
-        return nNonce == 0xFEEDBEEF;
+        return (nNonce == 0xFEEDBEEF) || (nNonce == 0xFEEDBEE1);
     }
 
     std::string ToString() const;

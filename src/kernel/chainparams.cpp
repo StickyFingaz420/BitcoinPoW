@@ -133,7 +133,7 @@ public:
         consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].min_activation_height = 0; // Dec 2023
 
         // The best chain should have at least this much work. - getblockchaininfo
-        consensus.nMinimumChainWork = uint256S("0x00000000000000000000000000000000000000000000004f035d8e9ebf9aef4c");
+        consensus.nMinimumChainWork = uint256S("0x0000000000000000000000000000000000000000000008c3e3681025f7a7cf4f");
 
         // By default assume that the signatures in ancestors of this block are valid.
         consensus.defaultAssumeValid = uint256S("00000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
@@ -234,7 +234,8 @@ public:
                 { 14180, uint256S("0xef939cd95e947bd72357b754dd75503347b80fbb68a6435b0da7ecdea1da3ae2")},
                 { 21111, uint256S("0x7067cd7104e32708f4094cf626c4afcdee8af1a76a5969daa95122b2c0346e5a")},
                 // BitcoinPoW to More PoW fork
-                //{ 23333 uint256S("0x????")},
+                { 23334, uint256S("0x6ee07434a179056a258e3b0bb12e5f5e4c914f6ea77ed396fbe32962663aded6")},
+                { 30550, uint256S("0xa4e1ee471f362b5e00ea20c575755f1dff00d39e2efb13dd6bf861d371436ce1")},
             }
         };
 
@@ -244,9 +245,9 @@ public:
 
         chainTxData = ChainTxData{
             // Data from RPC: getchaintxstats
-            /* nTime    */ 1714362313,
-            /* nTxCount */ 18749063,
-            /* dTxRate  */ 0.2879754883092357,
+            /* nTime    */ 1719970210,
+            /* nTxCount */ 19447911,
+            /* dTxRate  */ 0.06365420205887741,
         };
     }
 };
