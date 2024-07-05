@@ -18,7 +18,7 @@ static const int64_t MAX_BLOCK_SIGOPS_COST = 80000;
 /** The fork start height of SatoshiPoW (network rule) */
 static const int64_t BITCOIN_POW256_START_HEIGHT = 23333;
 /** The fork start height to eliminate mining pools (network rule) */
-static const int64_t BITCOIN_ELIMINATE_MINING_POOLS_START_HEIGHT = 4000000000000; // @TODO, fork height is ???
+static const int64_t BITCOIN_ELIMINATE_MINING_POOLS_START_HEIGHT = 34000;
 /** Coinbase transaction outputs can only be spent after this number of new blocks (network rule) */
 constexpr int COINBASE_MATURITY()
 {

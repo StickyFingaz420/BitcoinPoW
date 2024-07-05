@@ -763,7 +763,7 @@ void ThreadStakeMiner(wallet::CWallet& wallet, CConnman& connman, ChainstateMana
             pblocktemplate->block.nTime = i;
             pblocktemplate->block.nNonce = nNonce; // Proof of Transaction Work                
             std::shared_ptr<CBlock> pblock = std::make_shared<CBlock>(pblocktemplate->block);
-LogPrintf("START LOOKING FOR POT============================================\n");
+
             if (SignBlock(chainman, pblock, wallet, nTotalFees, i, nNonce, setCoins, false)) {
 
                 if (chainman.ActiveChain().Tip()->GetBlockHash() != pblock->hashPrevBlock) {
@@ -784,7 +784,7 @@ LogPrintf("START LOOKING FOR POT============================================\n")
                     LogPrintf("ThreadStakeMiner(): Valid future PoS block was orphaned before becoming valid\n");
                     break;
                 }
-LogPrintf("FOUND POT SOLUTION - START LOOKING PoW============================================\n");                
+          
                 // Sign the full block and use the timestamp from earlier for a valid stake
                 std::shared_ptr<CBlock> pblockfilled = std::make_shared<CBlock>(pblocktemplatefilled->block);
                 if (SignBlock(chainman, pblockfilled, wallet, nTotalFees, i, nNonce, setCoins, true)) {
@@ -812,7 +812,7 @@ LogPrintf("FOUND POT SOLUTION - START LOOKING PoW===============================
                     }
                     if (validBlock) {
                         CheckStake(chainman, pblockfilled, wallet);
-                        LogPrintf("FOUND BLOCK============================================\n");
+
                         // Update the search time when new valid block is created, needed for status bar icon
                         wallet.m_last_coin_stake_search_time = pblockfilled->GetBlockTime();
                     }

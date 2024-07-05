@@ -6485,7 +6485,6 @@ bool CheckBlockSignature(const CBlock& block)
         {
             return false;
         }
-        LogPrintf("CheckBlockSignature============================================\n");
 
         // Signature has now been restored to original size, check it
         uint256 hash_no_sig = block.GetHashWithoutSign();
@@ -6718,7 +6717,6 @@ bool SignBlock(ChainstateManager& chainman, std::shared_ptr<CBlock> pblock, wall
                                             pblock->vchBlockSig.push_back(nonce>>16);
                                             pblock->vchBlockSig.push_back(nonce>>8);
                                             pblock->vchBlockSig.push_back(nonce>>0);
-                                            LogPrintf("PoW FOUND============================================\n");
                                             retVal = true;
                                             break;
                                         }
@@ -6755,7 +6753,6 @@ bool SignBlock(ChainstateManager& chainman, std::shared_ptr<CBlock> pblock, wall
 
             //We must wait for all threads to finish
             tp.wait();
-            LogPrintf("tp.wait() DONE============================================\n");
         }
     }
 
