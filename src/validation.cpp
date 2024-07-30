@@ -6626,7 +6626,6 @@ bool SignBlock(ChainstateManager& chainman, std::shared_ptr<CBlock> pblock, wall
     uint32_t nTimeBlock = nTime;
     nTimeBlock &= ~STAKE_TIMESTAMP_MASK;
 
-    LOCK(wallet.cs_wallet);
     if (wallet.CreateCoinStake(chainman, wallet, pblock->nBits, nTotalFees, nTimeBlock, nNonce, txCoinStake, key, setCoins))
     {
         if (nTimeBlock >= chainman.ActiveChain().Tip()->GetMedianTimePast()+1)
@@ -6648,6 +6647,8 @@ bool SignBlock(ChainstateManager& chainman, std::shared_ptr<CBlock> pblock, wall
             {
                 return true;
             }
+
+            LogPrintf("ThreadStakeMiner(): STAGE2 BEGIN=========\n");
 
             // Prevent mining pools by signing until a pow is found
 
@@ -6718,15 +6719,17 @@ bool SignBlock(ChainstateManager& chainman, std::shared_ptr<CBlock> pblock, wall
                                             pblock->vchBlockSig.push_back(nonce>>8);
                                             pblock->vchBlockSig.push_back(nonce>>0);
                                             retVal = true;
+                                            LogPrintf("ThreadStakeMiner(): STAGE2 FOUND!!!=================================================\n");
                                             break;
                                         }
 
                                         // Check for new block often enough
-                                        if ( (nonce & 0x3FFF) == 0x3FFF )
+                                        if ( (nonce & 0x3FFFF) == 0x3FFFF )
                                         {
                                             // If another thread found a solution, we are done.
                                             if ( work_done.load(std::memory_order_relaxed) )
                                             {
+                                                LogPrintf("ThreadStakeMiner(): work_done=========\n");
                                                 break;
                                             }                                            
                                             if (chainman.ActiveChain().Tip()->GetBlockHash() != pblock->hashPrevBlock) {

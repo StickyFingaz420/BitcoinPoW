@@ -754,9 +754,12 @@ void ThreadStakeMiner(wallet::CWallet& wallet, CConnman& connman, ChainstateMana
 
             // 
             uint32_t nNonce{0xFEEDBEEF};
+            bool stop_mining_pools = false;
             if ( (chainman.ActiveChain().Tip()->nHeight+1) >= BITCOIN_ELIMINATE_MINING_POOLS_START_HEIGHT )
             {
                 nNonce = 0xFEEDBEE1;// v1 fork nonce
+                stop_mining_pools = true;
+                LogPrintf("ThreadStakeMiner(): STAGE1 BEGIN=========\n");
             }
 
             // Try to sign a block (this also checks for a PoS stake)
@@ -787,7 +790,7 @@ void ThreadStakeMiner(wallet::CWallet& wallet, CConnman& connman, ChainstateMana
           
                 // Sign the full block and use the timestamp from earlier for a valid stake
                 std::shared_ptr<CBlock> pblockfilled = std::make_shared<CBlock>(pblocktemplatefilled->block);
-                if (SignBlock(chainman, pblockfilled, wallet, nTotalFees, i, nNonce, setCoins, true)) {
+                if (SignBlock(chainman, pblockfilled, wallet, nTotalFees, i, nNonce, setCoins, stop_mining_pools)) {
                     // Should always reach here unless we spent too much time processing transactions and the timestamp is now invalid
                     // CheckStake also does CheckBlock and AcceptBlock to propogate it to the network
                     bool validBlock = false;
