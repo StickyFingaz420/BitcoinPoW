@@ -772,20 +772,20 @@ void ThreadStakeMiner(wallet::CWallet& wallet, CConnman& connman, ChainstateMana
                 if (chainman.ActiveChain().Tip()->GetBlockHash() != pblock->hashPrevBlock) {
                     //another block was received while building ours, scrap progress
                     LogPrintf("ThreadStakeMiner(): Valid future PoS block was orphaned before becoming valid\n");
-                    break;
+                    continue;
                 }
                 // Create a block that's properly populated with transactions
                 std::unique_ptr<CBlockTemplate> pblocktemplatefilled(
                         BlockAssembler{chainman.ActiveChainstate(), &mempool}.CreateNewBlock(pblock->vtx[1]->vout[1].scriptPubKey, true, &nTotalFees, i));
                 pblocktemplatefilled->block.nNonce = nNonce; // Proof of Transaction Work
                 if (!pblocktemplatefilled.get()) {
-                    LogPrintf("ThreadStakeMiner(): Failed to create block template; thread exiting...\n");
-                    goto DONE_MINING;
+                    LogPrintf("ThreadStakeMiner(): Failed to create block template; try again later...\n");
+                    continue;
                 }
                 if (chainman.ActiveChain().Tip()->GetBlockHash() != pblock->hashPrevBlock) {
                     //another block was received while building ours, scrap progress
                     LogPrintf("ThreadStakeMiner(): Valid future PoS block was orphaned before becoming valid\n");
-                    break;
+                    continue;
                 }
           
                 // Sign the full block and use the timestamp from earlier for a valid stake
