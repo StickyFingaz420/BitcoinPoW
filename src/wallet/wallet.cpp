@@ -97,9 +97,10 @@ using interfaces::FoundBlock;
 wallet::CWallet *gp_wallet = nullptr;
 std::atomic<bool> s_mining_thread_exiting{false};
 std::atomic<bool> s_mining_allowed{true};
-std::atomic<double> s_hashes_per_second{0};
-std::atomic<double> s_cpu_loading{0};
-std::atomic<int> s_coin_loop_prev_max_idx{0};
+std::atomic<double> s_hashes_per_second1{0};
+std::atomic<double> s_hashes_per_second2{0};
+std::atomic<double> s_cpu_loading1{0};
+std::atomic<int> s_coin_loop_prev_max_idx1{0};
 
 namespace wallet {
 
@@ -112,9 +113,10 @@ void ResumeMining() {s_mining_allowed.store(true, std::memory_order_relaxed);}
 /* Resume mining - globally all threads */
 bool GetMiningAllowedStatus() {return s_mining_allowed.load(std::memory_order_relaxed);}
 
-double getHashesPerSecond() {return s_hashes_per_second.load(std::memory_order_relaxed);}
+double getHashesPerSecond1() {return s_hashes_per_second1.load(std::memory_order_relaxed);}
+double getHashesPerSecond2() {return s_hashes_per_second2.load(std::memory_order_relaxed);}
 
-double getCpuLoading() {return s_cpu_loading.load(std::memory_order_relaxed);}
+double getCpuLoading() {return s_cpu_loading1.load(std::memory_order_relaxed);}
 
 bool AddWalletSetting(interfaces::Chain& chain, const std::string& wallet_name)
 {
@@ -4481,9 +4483,9 @@ bool CWallet::CreateCoinStake(ChainstateManager& chainman, const CWallet& wallet
         return false;
     }
 
-    // Default to a useable GUI, half the threads at 50% loading. User can modify for their needs.
-    const int num_threads = std::min((int)gArgs.GetIntArg("-miningthreads", static_cast<int>(std::thread::hardware_concurrency()>>1)), (int)std::thread::hardware_concurrency());
-    const int cpu_loading = 10*gArgs.GetIntArg("-cpuloading", 50); // we use tenths
+    // Default to a use #hardware_concurrency threads. User can modify for their needs.
+    const int num_threads = std::min((int)gArgs.GetIntArg("-miningthreads", static_cast<int>(std::thread::hardware_concurrency())), (int)std::thread::hardware_concurrency());
+    const int cpu_loading = 10*96; // we use tenths, 96% target for STAGE1 mining, STAGE2 is at 100%
     
     std::pair<CWalletTx*,unsigned int> pcoin[num_threads];
     int idx[num_threads];
@@ -4525,7 +4527,7 @@ bool CWallet::CreateCoinStake(ChainstateManager& chainman, const CWallet& wallet
                             }                            
                             k++; // only this thread will increment
 
-                            // Target 95.0% cpu loading - Each mining round is a one second interval, it we get too close to 100% loading we will start
+                            // Target 96.0% cpu loading for stage1 - Each mining round is a one second interval, it we get too close to 100% loading we will start
                             // missing our 1 second bucket which results in a loss of hashpower. This isn't traditional PoW, we only get unique
                             // calculations on 1 second boundaries. This is similar to digital communications where we try to align to 1PPS.
                             int64_t delta = GetTime<std::chrono::milliseconds>().count() - start_time;
@@ -4565,7 +4567,7 @@ bool CWallet::CreateCoinStake(ChainstateManager& chainman, const CWallet& wallet
         num_thread_loops += idx[n];
     }
 
-    s_coin_loop_prev_max_idx.store(num_thread_loops, std::memory_order_relaxed);
+    s_coin_loop_prev_max_idx1.store(num_thread_loops, std::memory_order_relaxed);
 
     bool fKernelFound = false;
     bool is_found = false;

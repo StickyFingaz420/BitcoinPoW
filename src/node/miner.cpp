@@ -637,13 +637,14 @@ void ThreadStakeMiner(wallet::CWallet& wallet, CConnman& connman, ChainstateMana
         if (!wallet::GetMiningAllowedStatus())
         {
             break;
-        }        
+        }
 
         while (wallet.IsLocked())
         {
             wallet.m_last_coin_stake_search_interval = 0;
-            s_hashes_per_second = 0;
-            s_cpu_loading = 0;
+            s_hashes_per_second1 = 0;
+            s_hashes_per_second2 = 0;
+            s_cpu_loading1 = 0;
             UninterruptibleSleep(std::chrono::milliseconds{1000});      
             continue;    
         }
@@ -651,8 +652,9 @@ void ThreadStakeMiner(wallet::CWallet& wallet, CConnman& connman, ChainstateMana
         if (chainman.ActiveChain().Tip()->nHeight < Params().GetConsensus().nLastPOWBlock) {
             UninterruptibleSleep(std::chrono::milliseconds{Params().GetConsensus().nPowTargetSpacing * 1000});
             wallet.m_last_coin_stake_search_interval = 0;
-            s_hashes_per_second = 0;
-            s_cpu_loading = 0;
+            s_hashes_per_second1 = 0;
+            s_hashes_per_second2 = 0;
+            s_cpu_loading1 = 0;
             continue;
         }
         // Don't disable mining for no connections if in regtest mode
@@ -674,8 +676,9 @@ void ThreadStakeMiner(wallet::CWallet& wallet, CConnman& connman, ChainstateMana
                     !chainman.ActiveChain().Tip()->IsValid(BLOCK_VALID_TRANSACTIONS)) {
                     UninterruptibleSleep(std::chrono::milliseconds{1000});
                     wallet.m_last_coin_stake_search_interval = 0;
-                    s_hashes_per_second = 0;
-                    s_cpu_loading = 0;
+                    s_hashes_per_second1 = 0;
+                    s_hashes_per_second2 = 0;
+                    s_cpu_loading1 = 0;
                     continue;
                 }
             }
@@ -685,8 +688,9 @@ void ThreadStakeMiner(wallet::CWallet& wallet, CConnman& connman, ChainstateMana
         if (connman.GetNodeCount(ConnectionDirection::Both) == 0 ) {
             UninterruptibleSleep(std::chrono::milliseconds{1000});
             wallet.m_last_coin_stake_search_interval = 0;
-            s_hashes_per_second = 0;
-            s_cpu_loading = 0;
+            s_hashes_per_second1 = 0;
+            s_hashes_per_second2 = 0;
+            s_cpu_loading1 = 0;
             continue;
         }
 
@@ -727,8 +731,8 @@ void ThreadStakeMiner(wallet::CWallet& wallet, CConnman& connman, ChainstateMana
                 uint32_t newTime=GetAdjustedTime64();
 
                 int64_t delta = stop_time - start_time;
-                s_hashes_per_second = 64 * s_coin_loop_prev_max_idx.load(std::memory_order_relaxed);; // 64 is extra PoW sha256()
-                s_cpu_loading = delta/10.0 > 100 ? 100.0 : delta/10.0; // This is loading % for a single core that is active.
+                s_hashes_per_second1 = 64 * s_coin_loop_prev_max_idx1.load(std::memory_order_relaxed);; // 64 is extra PoW sha256()
+                s_cpu_loading1 = delta/10.0 > 100 ? 100.0 : delta/10.0; // This is loading % for a single core that is active.
 
                 if ( newTime > beginningTime )
                 {
@@ -790,6 +794,13 @@ void ThreadStakeMiner(wallet::CWallet& wallet, CConnman& connman, ChainstateMana
           
                 // Sign the full block and use the timestamp from earlier for a valid stake
                 std::shared_ptr<CBlock> pblockfilled = std::make_shared<CBlock>(pblocktemplatefilled->block);
+
+                // Stage2 mining will start about 1 second after calling SignBlock() below, zero out the stats
+                // to let the user know that stage1 mining is now complete.
+                s_hashes_per_second1 = 0;
+                s_hashes_per_second2 = 0;
+                s_cpu_loading1 = 0;
+
                 if (SignBlock(chainman, pblockfilled, wallet, nTotalFees, i, nNonce, setCoins, stop_mining_pools)) {
                     // Should always reach here unless we spent too much time processing transactions and the timestamp is now invalid
                     // CheckStake also does CheckBlock and AcceptBlock to propogate it to the network
@@ -834,8 +845,9 @@ DONE_MINING:
 
     // Not mining anymore, show 0 hps.
     wallet.m_last_coin_stake_search_interval = 0;
-    s_hashes_per_second = 0;
-    s_cpu_loading = 0;
+    s_hashes_per_second1 = 0;
+    s_hashes_per_second2 = 0;
+    s_cpu_loading1 = 0;
 }
 
 #endif

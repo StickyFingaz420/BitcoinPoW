@@ -90,7 +90,7 @@ static UniValue GetNetworkHashPS(int lookup, int height, const CChain& active_ch
     arith_uint256 workDiff = pb->nChainWork - pb0->nChainWork;
     int64_t timeDiff = maxTime - minTime;
 
-    return workDiff.getdouble() / timeDiff / POW_POT_DIFF_HELPER;
+    return workDiff.getdouble() / timeDiff / SIG_DIFF_ADJ;
 }
 
 static RPCHelpMan getnetworkhashps()
@@ -497,20 +497,36 @@ static RPCHelpMan getmininginfo()
     if (BlockAssembler::m_last_block_weight) obj.pushKV("currentblockweight", *BlockAssembler::m_last_block_weight);
     if (BlockAssembler::m_last_block_num_txs) obj.pushKV("currentblocktx", *BlockAssembler::m_last_block_num_txs);
     obj.pushKV("difficulty",       (double)GetDifficulty(active_chain.Tip()));
-    obj.pushKV("networkhashps",    getnetworkhashps().HandleRequest(request));
-    obj.pushKV("localhashps",      wallet::getHashesPerSecond());
+    obj.pushKV("network-stage2-hashps",    getnetworkhashps().HandleRequest(request));
+    obj.pushKV("local-stage1-hashps",      wallet::getHashesPerSecond1());
+    obj.pushKV("local-stage2-hashps",      wallet::getHashesPerSecond2());
+
     double net = getnetworkhashps().HandleRequest(request).get_real();
-    double local = wallet::getHashesPerSecond();
-    if ( 0 == local )
+
+    double local1 = wallet::getHashesPerSecond1();
+    double local2 = wallet::getHashesPerSecond2();
+
+    if ( 0 == local2 )
     {
-        obj.pushKV("daystofind", "never"); 
+        obj.pushKV("daystofind", "never"); // Can only find a block if in stage2
+    }    
+    else
+    {
+        double days = net/(144*local2);
+        obj.pushKV("daystofind", days);  
+    }
+
+    if ( local1 > 0 )
+    {
+        // Stage1 requires utxos to create a loading
+        obj.pushKV("cpuloadingpercent", wallet::getCpuLoading());
     }
     else
     {
-        double days = net/(144*local); // 150 blocks per day may be more accurate since hashrate keeps increasing, but this is close enough.
-        obj.pushKV("daystofind",       days);  
-    }
-    obj.pushKV("cpuloadingpercent", wallet::getCpuLoading());
+        // Stage2 is always 100% loading on each active core
+        obj.pushKV("cpuloadingpercent", (double)100);
+    }    
+    
     obj.pushKV("pooledtx",         (uint64_t)mempool.size());
     obj.pushKV("chain", chainman.GetParams().GetChainTypeString());
     obj.pushKV("warnings",         GetWarnings(false).original);

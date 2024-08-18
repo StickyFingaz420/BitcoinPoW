@@ -192,7 +192,7 @@ BitcoinGUI::BitcoinGUI(interfaces::Node& node, const PlatformStyle *_platformSty
     {
         QTimer *timerMiningIcon = new QTimer(this);
         connect(timerMiningIcon, SIGNAL(timeout()), this, SLOT(updateMiningIcon()));
-        timerMiningIcon->start(10000); // do not lock GUI too often
+        timerMiningIcon->start(5000); // do not lock GUI too often
 
         updateMiningIcon();
     }
@@ -1542,7 +1542,7 @@ void BitcoinGUI::updateMiningIcon()
     {
         labelMiningIcon->setPixmap(platformStyle->SingleColorIcon(":/icons/mining_on").pixmap(STATUSBAR_ICONSIZE, STATUSBAR_ICONSIZE));
         std::stringstream ss;
-        ss << "CPU mining: " << (int)wallet::getHashesPerSecond() << " Hashes/second \n" << "CPU loading: " << (int)wallet::getCpuLoading() << "%";
+        ss << "STAGE1: " << (int)wallet::getHashesPerSecond1() << " Hashes/second \n" << "STAGE1 loading: " << (int)wallet::getCpuLoading() << "%" << "\nSTAGE2: " << (int)wallet::getHashesPerSecond2() << " Hashes/second \n";
         labelMiningIcon->setToolTip(tr(ss.str().c_str()));
     }
     else

@@ -13,6 +13,7 @@
 #include <chain.h>
 #include <checkqueue.h>
 #include <clientversion.h>
+#include <common/args.h>
 #include <consensus/amount.h>
 #include <consensus/consensus.h>
 #include <consensus/merkle.h>
@@ -6665,21 +6666,28 @@ bool SignBlock(ChainstateManager& chainman, std::shared_ptr<CBlock> pblock, wall
             bnTarget = SIG_DIFF_ADJ*bnTarget;
             hash_no_sig = pblock->GetHashWithoutSign();
 
-            const int num_threads = std::thread::hardware_concurrency();
+            // Default to a use #hardware_concurrency threads. User can modify for their needs.
+            const int num_threads = std::min((int)gArgs.GetIntArg("-miningthreads", static_cast<int>(std::thread::hardware_concurrency())), (int)std::thread::hardware_concurrency());
             static util::ThreadPool tp(num_threads);
             std::atomic<bool> work_done{false};
+
+            std::atomic<double> s_hashes_per_second2_array[num_threads];
 
             // Push work to the mining threads
             for ( uint64_t thread_idx=0; thread_idx<num_threads; thread_idx++ )
             {
+                s_hashes_per_second2_array[thread_idx].store(0,std::memory_order::memory_order_relaxed);
                 tp.push([&, thread_idx]() {
-                            uint64_t tidx = thread_idx;
+
                             try
                             {
                                 //===========THREAD Work BEGIN===========
+                                uint64_t tidx = thread_idx;
+                                int64_t start_time = GetTime<std::chrono::milliseconds>().count();
+                                                                
                                 // Chunk up the work across all threads
                                 uint64_t loops_per_thread = (uint64_t)0xFFFFFFFFFFFFFFFF/num_threads;
-                                uint64_t offset = loops_per_thread*tidx;
+                                uint64_t offset = loops_per_thread*tidx;// + (uint64_t)0x0000FFFFFFFFFFFF;
                                 uint64_t nonce;
                                 std::vector<unsigned char> vchBlockSig;
                                 uint256 hashPoW;
@@ -6724,7 +6732,7 @@ bool SignBlock(ChainstateManager& chainman, std::shared_ptr<CBlock> pblock, wall
                                         }
 
                                         // Check for new block often enough
-                                        if ( (nonce & 0x3FFFF) == 0x3FFFF )
+                                        if ( (nonce & 0x1FFFF) == 0x1FFFF )
                                         {
                                             // If another thread found a solution, we are done.
                                             if ( work_done.load(std::memory_order_relaxed) )
@@ -6737,6 +6745,32 @@ bool SignBlock(ChainstateManager& chainman, std::shared_ptr<CBlock> pblock, wall
                                                 work_done.store(true, std::memory_order_relaxed);
                                                 break;
                                             }
+                                            // Stop mining if requested
+                                            if ( s_mining_thread_exiting.load(std::memory_order_relaxed) )
+                                            {
+                                                break;
+                                            }
+
+                                            if (!wallet::GetMiningAllowedStatus())
+                                            {
+                                                break;
+                                            }
+
+                                            int64_t ms_delta = GetTime<std::chrono::milliseconds>().count() - start_time;
+                                            start_time = GetTime<std::chrono::milliseconds>().count();
+                                            s_hashes_per_second2_array[tidx].store( 1000*((double)0x1FFFF)/ms_delta, std::memory_order::memory_order_relaxed );                                            
+
+                                            // Let thread0 be the master
+                                            if ( 0 == tidx )
+                                            {
+                                                double hps = 0;
+                                                for (int n=0; n<num_threads; n++)
+                                                {
+                                                    hps += s_hashes_per_second2_array[n].load(std::memory_order::memory_order_consume);
+                                                }
+                                                s_hashes_per_second2.store( (double)(hps), std::memory_order::memory_order_relaxed );                                                
+                                            }
+                                                                                     
                                         }
 
                                     }
