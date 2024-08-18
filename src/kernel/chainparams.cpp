@@ -238,7 +238,8 @@ public:
                 { 30550, uint256S("0xa4e1ee471f362b5e00ea20c575755f1dff00d39e2efb13dd6bf861d371436ce1")},
                 // BitcoinPoW hard fork eliminate mining pools
                 { 34001, uint256S("0x68be69b19c98c0ef9e4a5cbafcc897e09ea0826057eb7535fa497977273db889")},
-                { 36650, uint256S("0x932565bccbffafce8818b56cdf277eac6247e2cfdee10579eb2d6be9f44d834e")},                
+                { 36650, uint256S("0x932565bccbffafce8818b56cdf277eac6247e2cfdee10579eb2d6be9f44d834e")},
+                { 36780, uint256S("0xefe930a3c76caf787e6cfc6719954dc0ff51a53d222eae693da73e5145c1388e")},
             }
         };
 

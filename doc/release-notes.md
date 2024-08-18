@@ -1,7 +1,7 @@
-26.4.1 Release Notes (BTCW)
+26.4.3 Release Notes (BTCW)
 ==================
 
-Bitcoin PoW Core version 26.4.1 is now available from:
+Bitcoin PoW Core version 26.4.3 is now available from:
 
   <https://github.com/bitcoin-pow/BitcoinPoW/releases>
 
@@ -39,33 +39,23 @@ unsupported systems.
 Notable changes
 ===============
 
-Hardforked BTCW to prevent miningpools from existing.
+Updates have been made to show the stage1 and stage2 hashes per second using the rpc command 'getmininginfo'
 
-https://github.com/bitcoin-pow/BitcoinPoW/pull/53
+You can look at the 'daystofind' field to get an estimate of how often you should mine a block on average.
+You can determine which stage you are mining by looking at:
 
-Addressed the following issue:
-```
-Since the mining loop was never signed, it was possible for a mining pool to write its own software such 
-that it communicates with its users to do a majority of the mining work and then submits back to the pool
-owner for the final block signature before block submission. To prevent this from occurring, a new
-mining algorithm was created. The algorithm is a two step approach as follows:
+local-stage1-hashps and local-stage2-hashps
 
-1) Mining using utxos just as legacy mining.
-
-2) Mine using a new 64 bit nonce and combine with the block signature to create some mud. Throw the mud thru
-   a sha256 hash function and check if the hash meets a new threshold.
+When they are 0 they are NOT active, when they non-zero they are active. Only one of them will be active at a given time.
+cpuloading option has been removed since miningthreads can be used for overall cpu loading. Each active thread will be near 100% load.
 
 
-The validator will check to make sure that the signature in (1) matches the signature in (2) that was used
-to sign the work and that both parts meet the thresholds for acceptance. Since the signatures must match,
-the private key must be shared between (1) and (2). Sharing private keys will eliminate mining pools because all
-trust is now lost.
+Pull requests resolved in this release:
 
-The other attempt at pool formation will be to have the users only perform (1) and then send back to the pool for the
-pool to finish doing (2). This will fail because the amount of work to do (1) is about 1% of the total work and the
-remaining 99% of the work is in (2). This means that users would send work back to the pool and sit idle for 99% of 
-the block time on average waiting for new work. Users have no benefit of using a pool and the pool will not form,
-it they do form, they will be very unhealty pools that do not offer benefit to the users nor the pool owner.
+https://github.com/bitcoin-pow/BitcoinPoW/issues/54 - miningthreads option not working for stage 2
+https://github.com/bitcoin-pow/BitcoinPoW/issues/55 - Get balance too slow when mining
+https://github.com/bitcoin-pow/BitcoinPoW/issues/58 - Miner exits
+
 ```
 
 Credits
