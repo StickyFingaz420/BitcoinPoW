@@ -1,7 +1,7 @@
-26.4.3 Release Notes (BTCW)
+26.4.4 Release Notes (BTCW)
 ==================
 
-Bitcoin PoW Core version 26.4.3 is now available from:
+Bitcoin PoW Core version 26.4.4 is now available from:
 
   <https://github.com/bitcoin-pow/BitcoinPoW/releases>
 
@@ -38,7 +38,6 @@ unsupported systems.
 
 Notable changes
 ===============
-
 Updates have been made to show the stage1 and stage2 hashes per second using the rpc command 'getmininginfo'
 
 You can look at the 'daystofind' field to get an estimate of how often you should mine a block on average.
@@ -49,12 +48,17 @@ local-stage1-hashps and local-stage2-hashps
 When they are 0 they are NOT active, when they non-zero they are active. Only one of them will be active at a given time.
 cpuloading option has been removed since miningthreads can be used for overall cpu loading. Each active thread will be near 100% load.
 
+cpuloadingpercent only shows for stage1 and shows correct value now.
+When local-stage1-hashps: 0
+CPU loading should show about 0%
+
+getmininginfo transition from stage1 to stage2 was looking at uninitialized hashps data for many seconds before correct data was there. 
+The result of this issue would have a divide by zero error and show 'The string inf is not a valid json number' when calling getmininginfo. 
+This has been fixed.
 
 Pull requests resolved in this release:
-
-https://github.com/bitcoin-pow/BitcoinPoW/issues/54 - miningthreads option not working for stage 2
-https://github.com/bitcoin-pow/BitcoinPoW/issues/55 - Get balance too slow when mining
-https://github.com/bitcoin-pow/BitcoinPoW/issues/58 - Miner exits
+https://github.com/bitcoin-pow/BitcoinPoW/issues/61 - Mining status error
+https://github.com/bitcoin-pow/BitcoinPoW/issues/62 - CPU loading shows 100% with low number of utxos
 
 ```
 
