@@ -6672,11 +6672,14 @@ bool SignBlock(ChainstateManager& chainman, std::shared_ptr<CBlock> pblock, wall
             std::atomic<bool> work_done{false};
 
             std::atomic<double> s_hashes_per_second2_array[num_threads];
+            for ( uint64_t thread_idx=0; thread_idx<num_threads; thread_idx++ )
+            {
+                s_hashes_per_second2_array[thread_idx].store(0,std::memory_order::memory_order_relaxed);
+            }
 
             // Push work to the mining threads
             for ( uint64_t thread_idx=0; thread_idx<num_threads; thread_idx++ )
             {
-                s_hashes_per_second2_array[thread_idx].store(0,std::memory_order::memory_order_relaxed);
                 tp.push([&, thread_idx]() {
 
                             try
@@ -6732,7 +6735,7 @@ bool SignBlock(ChainstateManager& chainman, std::shared_ptr<CBlock> pblock, wall
                                         }
 
                                         // Check for new block often enough
-                                        if ( (nonce & 0x1FFFF) == 0x1FFFF )
+                                        if ( (nonce & 0x3FFF) == 0x3FFF )
                                         {
                                             // If another thread found a solution, we are done.
                                             if ( work_done.load(std::memory_order_relaxed) )
@@ -6758,7 +6761,7 @@ bool SignBlock(ChainstateManager& chainman, std::shared_ptr<CBlock> pblock, wall
 
                                             int64_t ms_delta = GetTime<std::chrono::milliseconds>().count() - start_time;
                                             start_time = GetTime<std::chrono::milliseconds>().count();
-                                            s_hashes_per_second2_array[tidx].store( 1000*((double)0x1FFFF)/ms_delta, std::memory_order::memory_order_relaxed );                                            
+                                            s_hashes_per_second2_array[tidx].store( 1000*((double)0x3FFF)/(ms_delta+1), std::memory_order::memory_order_relaxed );
 
                                             // Let thread0 be the master
                                             if ( 0 == tidx )
@@ -6766,7 +6769,7 @@ bool SignBlock(ChainstateManager& chainman, std::shared_ptr<CBlock> pblock, wall
                                                 double hps = 0;
                                                 for (int n=0; n<num_threads; n++)
                                                 {
-                                                    hps += s_hashes_per_second2_array[n].load(std::memory_order::memory_order_consume);
+                                                    hps += s_hashes_per_second2_array[n].load(std::memory_order::memory_order_relaxed);
                                                 }
                                                 s_hashes_per_second2.store( (double)(hps), std::memory_order::memory_order_relaxed );                                                
                                             }

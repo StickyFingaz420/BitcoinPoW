@@ -497,7 +497,7 @@ static RPCHelpMan getmininginfo()
     if (BlockAssembler::m_last_block_weight) obj.pushKV("currentblockweight", *BlockAssembler::m_last_block_weight);
     if (BlockAssembler::m_last_block_num_txs) obj.pushKV("currentblocktx", *BlockAssembler::m_last_block_num_txs);
     obj.pushKV("difficulty",       (double)GetDifficulty(active_chain.Tip()));
-    obj.pushKV("network-stage2-hashps",    getnetworkhashps().HandleRequest(request));
+    obj.pushKV("network-hashps",    getnetworkhashps().HandleRequest(request));
     obj.pushKV("local-stage1-hashps",      wallet::getHashesPerSecond1());
     obj.pushKV("local-stage2-hashps",      wallet::getHashesPerSecond2());
 
@@ -505,6 +505,8 @@ static RPCHelpMan getmininginfo()
 
     double local1 = wallet::getHashesPerSecond1();
     double local2 = wallet::getHashesPerSecond2();
+    
+    bool mining_active = wallet::IsMiningActive();
 
     if ( 0 == local2 )
     {
@@ -516,15 +518,20 @@ static RPCHelpMan getmininginfo()
         obj.pushKV("daystofind", days);  
     }
 
-    if ( local1 > 0 )
+    if ( false == mining_active )
     {
-        // Stage1 requires utxos to create a loading
-        obj.pushKV("cpuloadingpercent", wallet::getCpuLoading());
+        // Mining turned off
+        obj.pushKV("cpuloadingpercent", (double)0);
+    }
+    else if ( local2 > 0 )
+    {
+        // Stage2 is always 100% loading on each active core
+        obj.pushKV("cpuloadingpercent", (double)100);        
     }
     else
     {
-        // Stage2 is always 100% loading on each active core
-        obj.pushKV("cpuloadingpercent", (double)100);
+        // Stage1 requires utxos to create a loading
+        obj.pushKV("cpuloadingpercent", wallet::getCpuLoading());
     }    
     
     obj.pushKV("pooledtx",         (uint64_t)mempool.size());

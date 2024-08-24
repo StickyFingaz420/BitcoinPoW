@@ -85,6 +85,7 @@ static const bool DEFAULT_STAKE_CACHE = true;
 
 extern std::atomic<bool> s_mining_thread_exiting;
 extern std::atomic<bool> s_mining_allowed;
+extern std::atomic<bool> s_mining_active;
 extern std::atomic<double> s_hashes_per_second1;
 extern std::atomic<double> s_hashes_per_second2;
 extern std::atomic<double> s_cpu_loading1;
@@ -191,6 +192,7 @@ void PauseMining();
 void ResumeMining();
 
 bool GetMiningAllowedStatus();
+bool IsMiningActive();
 
 double getHashesPerSecond1();
 double getHashesPerSecond2();

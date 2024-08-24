@@ -627,8 +627,14 @@ void ThreadStakeMiner(wallet::CWallet& wallet, CConnman& connman, ChainstateMana
     uint32_t beginningTime=0;
     int profiler = 0;
     int64_t stop_time, start_time = 0;
+
+    s_hashes_per_second1 = 0;
+    s_hashes_per_second2 = 0;
+    s_cpu_loading1 = 0;
+
     while (true)
-    {     
+    {
+        s_mining_active.store(false, std::memory_order_relaxed);
         if ( s_mining_thread_exiting.load(std::memory_order_relaxed) )
         {
             break;
@@ -714,6 +720,7 @@ void ThreadStakeMiner(wallet::CWallet& wallet, CConnman& connman, ChainstateMana
         //
         if (setCoins.size() > 0)
         {
+            s_mining_active.store(true, std::memory_order_relaxed);
             int64_t nTotalFees = 0;  
             // First just create an empty block. No need to process transactions until we know we can create a block
             std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler{chainman.ActiveChainstate(), &mempool}.CreateNewBlock(CScript(), true, &nTotalFees, 0, false));

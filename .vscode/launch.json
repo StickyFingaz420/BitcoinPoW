@@ -9,7 +9,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "/home/ubuntu/dev/BitcoinPoW/src/qt/bitcoin-qt",
-            "args": ["--emergencymining=1","--rescan=0", "--miningthreads=18", "--cpuloading=80"], 
+            "args": ["--emergencymining=1","--rescan=0", "--miningthreads=12"], 
             //"args": ["--listen=0", "--server=0"], 
             //    ./bitcoin-qt --emergencymining=1 --rescan=0 --miningthreads=18 -cpuloading=80 -datadir=/home/ubuntu/.bitcoin-pow &
             //    ./bitcoin-qt -listen=0 -forcednsseed=0 -datadir=/home/ubuntu/.btcw2/ -connect=127.0.0.1 &

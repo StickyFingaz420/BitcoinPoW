@@ -97,6 +97,7 @@ using interfaces::FoundBlock;
 wallet::CWallet *gp_wallet = nullptr;
 std::atomic<bool> s_mining_thread_exiting{false};
 std::atomic<bool> s_mining_allowed{true};
+std::atomic<bool> s_mining_active{false};
 std::atomic<double> s_hashes_per_second1{0};
 std::atomic<double> s_hashes_per_second2{0};
 std::atomic<double> s_cpu_loading1{0};
@@ -112,6 +113,8 @@ void ResumeMining() {s_mining_allowed.store(true, std::memory_order_relaxed);}
 
 /* Resume mining - globally all threads */
 bool GetMiningAllowedStatus() {return s_mining_allowed.load(std::memory_order_relaxed);}
+
+bool IsMiningActive() {return s_mining_active.load(std::memory_order_relaxed);}
 
 double getHashesPerSecond1() {return s_hashes_per_second1.load(std::memory_order_relaxed);}
 double getHashesPerSecond2() {return s_hashes_per_second2.load(std::memory_order_relaxed);}
