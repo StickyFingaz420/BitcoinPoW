@@ -1547,6 +1547,257 @@ RPCHelpMan sendall()
     };
 }
 
+std::string static EncodeDumpString(const std::string &str) {
+    std::stringstream ret;
+    for (const unsigned char c : str) {
+        if (c <= 32 || c >= 128 || c == '%') {
+            ret << '%' << HexStr({&c, 1});
+        } else {
+            ret << c;
+        }
+    }
+    return ret.str();
+}
+static bool GetWalletAddressesForKey(const LegacyScriptPubKeyMan* spk_man, const CWallet& wallet, const CKeyID& keyid, std::string& strAddr, std::string& strLabel) EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet)
+{
+    bool fLabelFound = false;
+    CKey key;
+    spk_man->GetKey(keyid, key);
+    for (const auto& dest : GetAllDestinationsForKey2(key.GetPubKey())) {
+        const auto* address_book_entry = wallet.FindAddressBookEntry(dest);
+        if (address_book_entry) {
+            if (!strAddr.empty()) {
+                strAddr += ",";
+            }
+            strAddr += EncodeDestination(dest);
+            strLabel = EncodeDumpString(address_book_entry->GetLabel());
+            fLabelFound = true;
+        }
+    }
+    if (!fLabelFound) {
+        strAddr = EncodeDestination(GetDestinationForKey(key.GetPubKey(), wallet.m_default_address_type));
+    }
+    return fLabelFound;
+}
+
+RPCHelpMan make_utxos()
+{
+    return RPCHelpMan{"make_utxos",
+                "\nCreate a specified number of utxos for the active wallet using the specified fee rate." +
+                std::string("\nIf total fee is high you may need to restart the wallet and user higher fee threshold: bitcoin-pow-qt.exe -maxtxfee=20.0") +
+        HELP_REQUIRING_PASSPHRASE,
+                {
+                    {"number_utxos", RPCArg::Type::AMOUNT, RPCArg::Optional::NO, "The number of utxos to create for the active wallet."},
+                    {"fee_rate", RPCArg::Type::AMOUNT, RPCArg::Optional::NO, "Specify a fee rate in " + CURRENCY_ATOM + "/vB."},
+                },
+                {
+                },
+                RPCExamples{
+                    "\nCreate 1000 utxos with a fee of 20 satoshi/vB\n"
+                    + HelpExampleCli("make_utxos", "1000  20")
+                },
+        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
+{
+    UniValue ret(UniValue::VARR);
+    UniValue o(UniValue::VOBJ);
+
+    try
+    {
+        std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+
+        if (!wallet) return NullUniValue;
+        CWallet* const pwallet = wallet.get();
+
+        const LegacyScriptPubKeyMan& spk_man = EnsureConstLegacyScriptPubKeyMan(*pwallet);
+
+
+        std::map<CKeyID, int64_t> mapKeyBirth;
+        pwallet->GetKeyBirthTimes(mapKeyBirth);
+
+        int64_t block_time = 0;
+
+        // Note: To avoid a lock order issue, access to cs_main must be locked before cs_KeyStore.
+        // So we do the two things in this function that lock cs_main first: GetKeyBirthTimes, and findBlock.
+        LOCK(pwallet->cs_wallet);
+        LOCK(spk_man.cs_KeyStore);
+
+        const std::map<CKeyID, int64_t>& mapKeyPool = spk_man.GetAllReserveKeys();
+        std::set<CScriptID> scripts = spk_man.GetCScripts();
+
+        // sort time/key pairs
+        std::vector<std::pair<int64_t, CKeyID> > vKeyBirth;
+        vKeyBirth.reserve(mapKeyBirth.size());
+        for (const auto& entry : mapKeyBirth) {
+            vKeyBirth.emplace_back(entry.second, entry.first);
+        }
+        mapKeyBirth.clear();
+        std::sort(vKeyBirth.begin(), vKeyBirth.end());
+
+        // add the base58check encoded extended master if the wallet uses HD
+        CKeyID seed_id = spk_man.GetHDChain().seed_id;
+        if (!seed_id.IsNull())
+        {
+            CKey seed;
+            if (spk_man.GetKey(seed_id, seed)) {
+                CExtKey masterKey;
+                masterKey.SetSeed(seed);
+            }
+        }
+
+        auto target_num = request.params[0].getInt<int>();
+        int count = 0;
+        std::stringstream ss;
+        for (std::vector<std::pair<int64_t, CKeyID> >::const_iterator it = vKeyBirth.begin(); it != vKeyBirth.end(); it++) {
+            const CKeyID &keyid = it->second;
+            std::string strTime = FormatISO8601DateTime(it->first);
+            std::string strAddr;
+            std::string strLabel;
+            CKey key;
+            if (spk_man.GetKey(keyid, key)) {
+                CKeyMetadata metadata;
+                const auto it{spk_man.mapKeyMetadata.find(keyid)};
+                if (it != spk_man.mapKeyMetadata.end()) metadata = it->second;
+
+                GetWalletAddressesForKey(&spk_man, *pwallet, keyid, strAddr, strLabel);
+                ss << strAddr << " ";
+                count++;
+                if ( count >= target_num )
+                {
+                    break;
+                }
+            }
+        }
+
+        // Make sure the results are valid at least up to the most recent block
+        // the user could have gotten from another RPC command prior to now
+        pwallet->BlockUntilSyncedToCurrentChain();
+
+        bool fSubtractFeeFromAmount = false;
+
+        CCoinControl coin_control; 
+        coin_control.m_signal_bip125_rbf = true; // force rbf
+
+        // Get a legacy change address to continue to use when sending txs
+        std::string label = "";
+        OutputType output_type = OutputType::LEGACY;
+        util::Result<CTxDestination> dest{util::Error{}};
+        std::string error;
+
+        {
+            if (!pwallet->CanGetAddresses()) {
+                throw JSONRPCError(RPC_WALLET_ERROR, "Error: This wallet has no available keys");
+            }
+
+            dest = wallet->GetNewChangeDestination(output_type);
+            if (!dest) {
+                throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, util::ErrorString(dest).original);
+            }
+        }
+
+        if (!IsValidDestination(dest.value())) {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Change address must be a valid bitcoin address");
+        }
+
+        // assign the change address
+        coin_control.destChange = dest.value();
+
+        coin_control.m_avoid_address_reuse = false;
+        // We also enable partial spend avoidance if reuse avoidance is set.
+        coin_control.m_avoid_partial_spends |= coin_control.m_avoid_address_reuse;
+
+        UniValue estimate_mode(UniValue::VSTR);
+        estimate_mode.setStr("unset");
+
+        // Fee rates in sat/vB cannot represent more than 3 significant digits.
+        const UniValue fee_rate = request.params[1];
+        coin_control.m_feerate = CFeeRate{AmountFromValue(fee_rate, /*decimals=*/3)};
+  
+        // No Wallet comments
+        mapValue_t mapValue;
+        mapValue["comment"] = "";
+        mapValue["to"] = "";
+
+        UniValue address_amounts(UniValue::VOBJ);
+        const std::string address = ss.str(); 
+
+        // Parse address(s) tokenize on white space.
+        auto v_address = [](const std::string& input, const std::string& regex) -> std::vector<std::string>
+        {
+            std::regex re(regex);
+            std::sregex_token_iterator
+                first{input.begin(), input.end(), re, -1},
+                last;
+            return {first, last};
+        }(address, "\\s+");
+
+        // Use the same fee for all address(s)
+        UniValue send_amount(UniValue::VNUM);
+        send_amount.setFloat(0.00001);     
+        for (auto a : v_address)
+        {
+            address_amounts.pushKV(a, send_amount);
+        }
+
+        UniValue subtractFeeFromAmount(UniValue::VARR); // ignore - not used
+        coin_control.m_signal_bip125_rbf = true; // force rbf
+
+        try
+        {
+            std::vector<CRecipient> recipients;
+            ParseRecipients(address_amounts, subtractFeeFromAmount, recipients);
+            const bool verbose{false};
+            int height = 1;
+            
+            EnsureWalletIsUnlocked(*pwallet);
+
+            bool are_unconfirms = false;
+            UniValue v;
+            v = SendMoney(*pwallet, coin_control, recipients, mapValue, verbose);
+
+            o.pushKV("txid", v);
+            o.pushKV("number_utxos", count);
+            ret.push_back(o);            
+            
+            std::string txid;
+            if (v.isStr())
+            {
+                txid = v.get_str();
+            }
+            uint256 hash;
+            bool is_abandoned = false; 
+            
+            if ( txid.size() > 0 )
+            {
+                hash = uint256S(txid.c_str());
+            }
+
+            {
+                height = pwallet->GetLastBlockHeight();                            
+                if (!hash.IsNull())
+                {
+                    is_abandoned = pwallet->AbandonTransaction(hash);
+                }
+            }
+        }
+        catch(...)
+        {
+            o.pushKV("failure1:", "Wait for confirmation and try again later.");
+            ret.push_back(o); 
+        }
+    }
+    catch(...)
+    {
+        o.pushKV("failure2:", "Wait for confirmation and try again later.");
+        ret.push_back(o); 
+        return ret;        
+    }
+
+    // send back command initiated
+    return ret;
+},
+    };
+}
+
 RPCHelpMan tx()
 {
     return RPCHelpMan{"tx",

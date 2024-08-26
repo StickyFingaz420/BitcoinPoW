@@ -54,6 +54,8 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "tx", 5, "conf_target" },
     { "tx", 7, "avoid_reuse" },
     { "tx", 8, "verbose"},
+    { "make_utxos", 0, "number_utxos" },
+    { "make_utxos", 1, "fee_rate"},    
     { "settxfee", 0, "amount" },
     { "sethdseed", 0, "newkeypool" },
     { "getreceivedbyaddress", 1, "minconf" },

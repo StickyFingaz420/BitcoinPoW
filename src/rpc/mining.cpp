@@ -498,6 +498,7 @@ static RPCHelpMan getmininginfo()
     if (BlockAssembler::m_last_block_num_txs) obj.pushKV("currentblocktx", *BlockAssembler::m_last_block_num_txs);
     obj.pushKV("difficulty",       (double)GetDifficulty(active_chain.Tip()));
     obj.pushKV("network-hashps",    getnetworkhashps().HandleRequest(request));
+    obj.pushKV("local-stage1-utxos",      wallet::getHashesPerSecond1()/64);
     obj.pushKV("local-stage1-hashps",      wallet::getHashesPerSecond1());
     obj.pushKV("local-stage2-hashps",      wallet::getHashesPerSecond2());
 

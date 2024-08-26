@@ -870,6 +870,7 @@ RPCHelpMan send();
 RPCHelpMan sendall();
 RPCHelpMan tx();
 RPCHelpMan txzap();
+RPCHelpMan make_utxos();
 RPCHelpMan walletprocesspsbt();
 RPCHelpMan walletcreatefundedpsbt();
 RPCHelpMan signrawtransactionwithwallet();
@@ -951,6 +952,7 @@ Span<const CRPCCommand> GetWalletRPCCommands()
         {"wallet", &sendall},
         {"wallet", &tx},
         {"wallet", &txzap},
+        {"wallet", &make_utxos},
         {"wallet", &unloadwallet},
         {"wallet", &upgradewallet},
         {"wallet", &walletcreatefundedpsbt},
