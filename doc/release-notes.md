@@ -1,7 +1,7 @@
-26.4.4 Release Notes (BTCW)
+26.4.5 Release Notes (BTCW)
 ==================
 
-Bitcoin PoW Core version 26.4.4 is now available from:
+Bitcoin PoW Core version 26.4.5 is now available from:
 
   <https://github.com/bitcoin-pow/BitcoinPoW/releases>
 
@@ -38,27 +38,32 @@ unsupported systems.
 
 Notable changes
 ===============
-Updates have been made to show the stage1 and stage2 hashes per second using the rpc command 'getmininginfo'
+NEW COMMAND: You can now use just ONE wallet to create utxos and use as a normal wallet. Use the command `make_utxos`
+shown below. You can send coin without using coin control. The logic has been adjusted so that when a user sends coin,
+it will never pick a mining dust utxo transaction. No need to hassle with multiple send and receive wallets!!!
 
-You can look at the 'daystofind' field to get an estimate of how often you should mine a block on average.
-You can determine which stage you are mining by looking at:
 
-local-stage1-hashps and local-stage2-hashps
+make_utxos number_utxos fee_rate
 
-When they are 0 they are NOT active, when they non-zero they are active. Only one of them will be active at a given time.
-cpuloading option has been removed since miningthreads can be used for overall cpu loading. Each active thread will be near 100% load.
+Create a specified number of utxos for the active wallet using the specified fee rate.
+If total fee is high you may need to restart the wallet and user higher fee threshold: bitcoin-pow-qt.exe -maxtxfee=20.0
+Requires wallet passphrase to be set with walletpassphrase call if wallet is encrypted.
 
-cpuloadingpercent only shows for stage1 and shows correct value now.
-When local-stage1-hashps: 0
-CPU loading should show about 0%
+Arguments:
 
-getmininginfo transition from stage1 to stage2 was looking at uninitialized hashps data for many seconds before correct data was there. 
-The result of this issue would have a divide by zero error and show 'The string inf is not a valid json number' when calling getmininginfo. 
-This has been fixed.
+    number_utxos (numeric or string, required) The number of utxos to create for the active wallet.
+    fee_rate (numeric or string, required) Specify a fee rate in sat/vB.
+
+Examples:
+
+Create 1000 utxos with a fee of 20 satoshi/vB
+
+    bitcoin-cli make_utxos 1000 20
+
 
 Pull requests resolved in this release:
-https://github.com/bitcoin-pow/BitcoinPoW/issues/61 - Mining status error
-https://github.com/bitcoin-pow/BitcoinPoW/issues/62 - CPU loading shows 100% with low number of utxos
+https://github.com/bitcoin-pow/BitcoinPoW/pull/65 - make_utxos command
+
 
 ```
 
