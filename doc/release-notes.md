@@ -1,7 +1,7 @@
-26.4.5 Release Notes (BTCW)
+26.4.6 Release Notes (BTCW)
 ==================
 
-Bitcoin PoW Core version 26.4.5 is now available from:
+Bitcoin PoW Core version 26.4.6 is now available from:
 
   <https://github.com/bitcoin-pow/BitcoinPoW/releases>
 
@@ -38,31 +38,18 @@ unsupported systems.
 
 Notable changes
 ===============
-NEW COMMAND: You can now use just ONE wallet to create utxos and use as a normal wallet. Use the command `make_utxos`
-shown below. You can send coin without using coin control. The logic has been adjusted so that when a user sends coin,
-it will never pick a mining dust utxo transaction. No need to hassle with multiple send and receive wallets!!!
+When the argument 'automine' is set to one, the wallet should start mining when started using the active wallet.
+./bitcoin-pow-qt -automine=1
+Default behavior is to NOT mine.
 
+Mining status shows correctly.
 
-make_utxos number_utxos fee_rate
-
-Create a specified number of utxos for the active wallet using the specified fee rate.
-If total fee is high you may need to restart the wallet and user higher fee threshold: bitcoin-pow-qt.exe -maxtxfee=20.0
-Requires wallet passphrase to be set with walletpassphrase call if wallet is encrypted.
-
-Arguments:
-
-    number_utxos (numeric or string, required) The number of utxos to create for the active wallet.
-    fee_rate (numeric or string, required) Specify a fee rate in sat/vB.
-
-Examples:
-
-Create 1000 utxos with a fee of 20 satoshi/vB
-
-    bitcoin-cli make_utxos 1000 20
-
+Number of utxos are always shown regardless if mining or not.
 
 Pull requests resolved in this release:
-https://github.com/bitcoin-pow/BitcoinPoW/pull/65 - make_utxos command
+https://github.com/bitcoin-pow/BitcoinPoW/issues/67 - sequentially consistent memory operations across status is needed #67
+https://github.com/bitcoin-pow/BitcoinPoW/issues/68 - Number of utxos should always show
+https://github.com/bitcoin-pow/BitcoinPoW/issues/69 - Add automine argument
 
 
 ```

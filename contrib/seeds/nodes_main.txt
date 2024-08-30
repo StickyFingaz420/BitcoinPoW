@@ -2,6 +2,7 @@
 149.28.47.93:8555
 73.111.167.134:8555
 195.3.222.59:8555
+180.119.137.34:8555
 96.30.193.32:8555
 45.77.241.232:8555
 70.34.209.180:8555
@@ -17,10 +18,12 @@
 
 # manually updated 2023-04 for minimal torv3 bootstrap support
 
+spmu6gx4677wlb4jmdeisp7knsmtk5v65qccoy7u2yaw7ahngpduv3ad.onion:8555
+ffypjhvxiosbobivwt2emlcnlqx2kklgpokb6jjextw7oucac73sufad.onion:8555
+3rkmkcxd6owjocqbeenpmgkurfmvstwh7uv6myftyi4jnt42227lkpyd.onion:8555
 pklsy6n2aw7bs2sp4jgo44vwdq2oyuaivkwivjxxljof33wbsklklyqd.onion:8555
 ctcoi2qbb4wsqsvrbvtcahmlcl4q4lcdpl6oyqrdrvtiumccqbl5dlyd.onion:8555
 ztuxc3sdl34pnhtgxd2fpax544qmwgz6jxodx3va6r3k3qcutxs6ppad.onion:8555
 vyeyrlhnxuc2r3yr6fnxq76p46bkqy4qoimkzjpusym45m2z3mrsjpyd.onion:8555
-pklsy6n2aw7bs2sp4jgo44vwdq2oyuaivkwivjxxljof33wbsklklyqd.onion:8555
 iorhcwlpbjakvngssuprrer2eta2xdlr2ve4q6ufr2zs7wzs46fl27id.onion:8555
 fuddvzgik2ksny56myfsuhz3onrpjlekplate5x5mb3mzkik4df6bbad.onion:8555
