@@ -97,6 +97,7 @@ void WalletInit::AddWalletOptions(ArgsManager& argsman) const
     argsman.AddArg("-walletcrosschain", strprintf("Allow reusing wallet files across chains (default: %u)", DEFAULT_WALLETCROSSCHAIN), ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::WALLET_DEBUG_TEST);
     argsman.AddArg("-emergencymining=<n>", "Enable or disable emergecy mining. 0 = disabled, 1 = enabled (default: disabled)", ArgsManager::ALLOW_ANY, OptionsCategory::WALLET);
     argsman.AddArg("-miningthreads=<n>", "Number of mining threads. 0 = disabled -> # of cores (default: half the cores)", ArgsManager::ALLOW_ANY, OptionsCategory::WALLET);
+    argsman.AddArg("-automine=<n>", "Start mining on startup. 0 = disabled, 1 = enabled (default: disabled)", ArgsManager::ALLOW_ANY, OptionsCategory::WALLET);
     argsman.AddHiddenArgs({"-zapwallettxes"});
 }
 

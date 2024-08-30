@@ -616,8 +616,8 @@ void ThreadStakeMiner(wallet::CWallet& wallet, CConnman& connman, ChainstateMana
 {
     SetThreadPriority(THREAD_PRIORITY_BELOW_NORMAL);
 
-    s_mining_thread_exiting.store(false, std::memory_order_relaxed);
-    s_mining_allowed.store(true, std::memory_order_relaxed);
+    s_mining_thread_exiting.store(false);
+    s_mining_allowed.store(true);
 
     bool fTryToSync = true;
     
@@ -634,8 +634,8 @@ void ThreadStakeMiner(wallet::CWallet& wallet, CConnman& connman, ChainstateMana
 
     while (true)
     {
-        s_mining_active.store(false, std::memory_order_relaxed);
-        if ( s_mining_thread_exiting.load(std::memory_order_relaxed) )
+        s_mining_active.store(false);
+        if ( s_mining_thread_exiting.load() )
         {
             break;
         }
@@ -669,7 +669,7 @@ void ThreadStakeMiner(wallet::CWallet& wallet, CConnman& connman, ChainstateMana
                 wallet.m_last_coin_stake_search_interval = 0;
                 fTryToSync = true;
                 UninterruptibleSleep(std::chrono::milliseconds{1000});
-                if ( s_mining_thread_exiting.load(std::memory_order_relaxed) || (!wallet::GetMiningAllowedStatus()) )
+                if ( s_mining_thread_exiting.load() || (!wallet::GetMiningAllowedStatus()) )
                 {
                     goto DONE_MINING;
                 }
@@ -718,9 +718,10 @@ void ThreadStakeMiner(wallet::CWallet& wallet, CConnman& connman, ChainstateMana
         //
         // Create new block
         //
+        setUtxosStage1(setCoins.size());
         if (setCoins.size() > 0)
         {
-            s_mining_active.store(true, std::memory_order_relaxed);
+            s_mining_active.store(true);
             int64_t nTotalFees = 0;  
             // First just create an empty block. No need to process transactions until we know we can create a block
             std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler{chainman.ActiveChainstate(), &mempool}.CreateNewBlock(CScript(), true, &nTotalFees, 0, false));
@@ -738,7 +739,7 @@ void ThreadStakeMiner(wallet::CWallet& wallet, CConnman& connman, ChainstateMana
                 uint32_t newTime=GetAdjustedTime64();
 
                 int64_t delta = stop_time - start_time;
-                s_hashes_per_second1 = 64 * s_coin_loop_prev_max_idx1.load(std::memory_order_relaxed);; // 64 is extra PoW sha256()
+                s_hashes_per_second1 = 64 * s_coin_loop_prev_max_idx1.load();; // 64 is extra PoW sha256()
                 s_cpu_loading1 = delta/10.0 > 100 ? 100.0 : delta/10.0; // This is loading % for a single core that is active.
 
                 if ( newTime > beginningTime )

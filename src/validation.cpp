@@ -6674,7 +6674,7 @@ bool SignBlock(ChainstateManager& chainman, std::shared_ptr<CBlock> pblock, wall
             std::atomic<double> s_hashes_per_second2_array[num_threads];
             for ( uint64_t thread_idx=0; thread_idx<num_threads; thread_idx++ )
             {
-                s_hashes_per_second2_array[thread_idx].store(0,std::memory_order::memory_order_relaxed);
+                s_hashes_per_second2_array[thread_idx].store(0);
             }
 
             // Push work to the mining threads
@@ -6712,11 +6712,11 @@ bool SignBlock(ChainstateManager& chainman, std::shared_ptr<CBlock> pblock, wall
                                         actual = UintToArith256(hashPoW);
                                         if (actual <= bnTarget)
                                         {
-                                            if ( work_done.load(std::memory_order_relaxed) )
+                                            if ( work_done.load() )
                                             {
                                                 break;
                                             }
-                                            work_done.store(true, std::memory_order_relaxed);
+                                            work_done.store(true);
 
                                             pblock->vchBlockSig.clear();
                                             pblock->vchBlockSig.insert( pblock->vchBlockSig.end(), vchBlockSig.begin(), vchBlockSig.end() ); // copy over the working copy to the block
@@ -6738,18 +6738,18 @@ bool SignBlock(ChainstateManager& chainman, std::shared_ptr<CBlock> pblock, wall
                                         if ( (nonce & 0x3FFF) == 0x3FFF )
                                         {
                                             // If another thread found a solution, we are done.
-                                            if ( work_done.load(std::memory_order_relaxed) )
+                                            if ( work_done.load() )
                                             {
                                                 LogPrintf("ThreadStakeMiner(): work_done=========\n");
                                                 break;
                                             }                                            
                                             if (chainman.ActiveChain().Tip()->GetBlockHash() != pblock->hashPrevBlock) {
                                                 //another block was received while building ours, scrap progress
-                                                work_done.store(true, std::memory_order_relaxed);
+                                                work_done.store(true);
                                                 break;
                                             }
                                             // Stop mining if requested
-                                            if ( s_mining_thread_exiting.load(std::memory_order_relaxed) )
+                                            if ( s_mining_thread_exiting.load() )
                                             {
                                                 break;
                                             }
@@ -6761,7 +6761,7 @@ bool SignBlock(ChainstateManager& chainman, std::shared_ptr<CBlock> pblock, wall
 
                                             int64_t ms_delta = GetTime<std::chrono::milliseconds>().count() - start_time;
                                             start_time = GetTime<std::chrono::milliseconds>().count();
-                                            s_hashes_per_second2_array[tidx].store( 1000*((double)0x3FFF)/(ms_delta+1), std::memory_order::memory_order_relaxed );
+                                            s_hashes_per_second2_array[tidx].store( 1000*((double)0x3FFF)/(ms_delta+1) );
 
                                             // Let thread0 be the master
                                             if ( 0 == tidx )
@@ -6769,9 +6769,9 @@ bool SignBlock(ChainstateManager& chainman, std::shared_ptr<CBlock> pblock, wall
                                                 double hps = 0;
                                                 for (int n=0; n<num_threads; n++)
                                                 {
-                                                    hps += s_hashes_per_second2_array[n].load(std::memory_order::memory_order_relaxed);
+                                                    hps += s_hashes_per_second2_array[n].load();
                                                 }
-                                                s_hashes_per_second2.store( (double)(hps), std::memory_order::memory_order_relaxed );                                                
+                                                s_hashes_per_second2.store( (double)(hps) );
                                             }
                                                                                      
                                         }
@@ -6788,13 +6788,15 @@ bool SignBlock(ChainstateManager& chainman, std::shared_ptr<CBlock> pblock, wall
                             {
                                 // error happened, exit out of thread
                             }
+                            
                         });
             }
 
             //We must wait for all threads to finish
             tp.wait();
+            s_hashes_per_second2.store( 0 );
         }
-    }
+    }  
 
     return retVal;
 }

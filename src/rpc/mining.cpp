@@ -262,7 +262,7 @@ static RPCHelpMan generate()
     
     if (gp_wallet)
     {
-        if ( invoked.load(std::memory_order_relaxed) )
+        if ( invoked.load() )
         {
             ret.push_back("Mining already in progress. Use lightning icon on GUI to stop mining or shutdown node to stop mining.");
             return ret;
@@ -271,7 +271,7 @@ static RPCHelpMan generate()
         gp_wallet->BlockUntilSyncedToCurrentChain();
         ret.push_back("Mining started. Use lightning icon on GUI to stop mining or shutdown node to stop mining.");
 
-        invoked.store(true, std::memory_order_relaxed);
+        invoked.store(true);
         std::thread mining_thread([=]() {
                 // If exception is thrown, try to mine again.
                 while (true)
@@ -279,7 +279,7 @@ static RPCHelpMan generate()
                     try
                     {
                         node::ThreadStakeMiner(*gp_wallet, connman, chainman, mempool);
-                        invoked.store(false, std::memory_order_relaxed);
+                        invoked.store(false);
                         break; // completed naturally, break out
                     }
                     catch(...)
@@ -498,7 +498,7 @@ static RPCHelpMan getmininginfo()
     if (BlockAssembler::m_last_block_num_txs) obj.pushKV("currentblocktx", *BlockAssembler::m_last_block_num_txs);
     obj.pushKV("difficulty",       (double)GetDifficulty(active_chain.Tip()));
     obj.pushKV("network-hashps",    getnetworkhashps().HandleRequest(request));
-    obj.pushKV("local-stage1-utxos",      wallet::getHashesPerSecond1()/64);
+    obj.pushKV("local-stage1-utxos",      wallet::getUtxosStage1());
     obj.pushKV("local-stage1-hashps",      wallet::getHashesPerSecond1());
     obj.pushKV("local-stage2-hashps",      wallet::getHashesPerSecond2());
 

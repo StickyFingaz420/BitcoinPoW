@@ -17,7 +17,7 @@ static bool shutdown_requested = false;
 void StartShutdown()
 {
     shutdown_requested = true;
-    s_mining_thread_exiting.store(true, std::memory_order_relaxed);
+    s_mining_thread_exiting.store(true);
     try {
         Assert(kernel::g_context)->interrupt();
     } catch (const std::system_error&) {

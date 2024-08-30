@@ -1845,12 +1845,12 @@ RPCHelpMan tx()
     try
     {
         // wait for previous command to cleanup and exit
-        while ( send_tx_thread_running.load(std::memory_order_relaxed) )
+        while ( send_tx_thread_running.load() )
         {
-            signal_tx_thread_stop.store(true, std::memory_order_relaxed);
+            signal_tx_thread_stop.store(true);
             UninterruptibleSleep(std::chrono::seconds{3});
         }
-        signal_tx_thread_stop.store(false, std::memory_order_relaxed);
+        signal_tx_thread_stop.store(false);
 
         std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
         if (!wallet) return NullUniValue;
@@ -1953,7 +1953,7 @@ RPCHelpMan tx()
 
                 try
                 {
-                    send_tx_thread_running.store(true, std::memory_order_relaxed);
+                    send_tx_thread_running.store(true);
 
                     std::vector<CRecipient> recipients;
                     ParseRecipients(address_amounts, subtractFeeFromAmount, recipients);
@@ -1963,7 +1963,7 @@ RPCHelpMan tx()
                     EnsureWalletIsUnlocked(*pwallet);
 
                     int n = 1;
-                    while ((n<=num_sends) && (false==signal_tx_thread_stop.load(std::memory_order_relaxed)))
+                    while ((n<=num_sends) && (false==signal_tx_thread_stop.load()))
                     {
                         UninterruptibleSleep(std::chrono::milliseconds{1000});
                         bool are_unconfirms = false;
@@ -2006,7 +2006,7 @@ RPCHelpMan tx()
                             }
                         }  
 
-                        while ( (are_unconfirms || is_abandoned) && (false==signal_tx_thread_stop.load(std::memory_order_relaxed)))
+                        while ( (are_unconfirms || is_abandoned) && (false==signal_tx_thread_stop.load()))
                         {
                             //"Transaction eligible for abandonment" -- just keep waiting
                             UninterruptibleSleep(std::chrono::seconds{5});
@@ -2025,12 +2025,12 @@ RPCHelpMan tx()
                     }
 
                     // done.
-                    send_tx_thread_running.store(false, std::memory_order_relaxed);
+                    send_tx_thread_running.store(false);
                 }
                 catch(...)
                 {
                     // done - bad happened
-                    send_tx_thread_running.store(false, std::memory_order_relaxed);
+                    send_tx_thread_running.store(false);
                 }
             }
         );
@@ -2041,7 +2041,7 @@ RPCHelpMan tx()
     catch(...)
     {
         // stop thread and reset, something bad happened.
-        signal_tx_thread_stop.store(true, std::memory_order_relaxed);
+        signal_tx_thread_stop.store(true);
         // send back command initiated
         return NullUniValue;        
     }
