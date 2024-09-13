@@ -1,7 +1,7 @@
-26.4.6 Release Notes (BTCW)
+26.4.7 Release Notes (BTCW)
 ==================
 
-Bitcoin PoW Core version 26.4.6 is now available from:
+Bitcoin PoW Core version 26.4.7 is now available from:
 
   <https://github.com/bitcoin-pow/BitcoinPoW/releases>
 
@@ -38,18 +38,19 @@ unsupported systems.
 
 Notable changes
 ===============
-When the argument 'automine' is set to one, the wallet should start mining when started using the active wallet.
-./bitcoin-pow-qt -automine=1
-Default behavior is to NOT mine.
+When miners sent their entire balance to another wallet and the mining wallet balance became ZERO; the mining failed to get into stage2. 
+This happened with the introduction of hiding dust txs in version 26.4.6. The following lines of code below would force a return 
+from entering stage2 mining because the check would fail.
 
-Mining status shows correctly.
+if (nCredit == 0 || nCredit > nBalance)
+    return false;
 
-Number of utxos are always shown regardless if mining or not.
+The solution was to delete the above lines of code. We get the balance from the previous output and the validation code will check 
+for sufficient balance anyway, no need for that check on the mining side.
+
 
 Pull requests resolved in this release:
-https://github.com/bitcoin-pow/BitcoinPoW/issues/67 - sequentially consistent memory operations across status is needed #67
-https://github.com/bitcoin-pow/BitcoinPoW/issues/68 - Number of utxos should always show
-https://github.com/bitcoin-pow/BitcoinPoW/issues/69 - Add automine argument
+https://github.com/bitcoin-pow/BitcoinPoW/pull/73 - some reports of not getting out of stage1 on latest release
 
 
 ```
@@ -60,6 +61,7 @@ Credits
 Thanks to everyone who directly contributed to this release:
 
 - FluffyFunction
+- skylovelian
 
 As well as to everyone that helped with translations on
 [Transifex](https://www.transifex.com/bitcoin/bitcoin/).
