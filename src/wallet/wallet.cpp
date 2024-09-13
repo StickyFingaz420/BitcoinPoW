@@ -4462,9 +4462,6 @@ bool CWallet::CreateCoinStake(ChainstateManager& chainman, const CWallet& wallet
     scriptEmpty.clear();
     txNew.vout.push_back(CTxOut(0, scriptEmpty));
 
-    // Choose coins to use
-    CAmount nBalance = GetBalance(wallet).m_mine_stakeable;
-
     std::vector<const CWalletTx*> vwtxPrev;
 
     if (setCoins.empty())
@@ -4498,17 +4495,19 @@ bool CWallet::CreateCoinStake(ChainstateManager& chainman, const CWallet& wallet
     const int num_threads = std::min((int)gArgs.GetIntArg("-miningthreads", static_cast<int>(std::thread::hardware_concurrency())), (int)std::thread::hardware_concurrency());
     const int cpu_loading = 10*96; // we use tenths, 96% target for STAGE1 mining, STAGE2 is at 100%
     
-    volatile std::pair<std::atomic<CWalletTx*>,std::atomic<unsigned int>> pcoin[num_threads];
-    volatile int idx[num_threads];
+    std::pair<CWalletTx*,unsigned int> pcoin[num_threads];
+    int idx[num_threads];
 
     static util::ThreadPool tp(std::thread::hardware_concurrency());
+
+    std::atomic<bool> work_done{false};
 
     // Push work to the mining threads
     for ( int thread_idx=0; thread_idx<num_threads; thread_idx++ )
     {
 
-        pcoin[thread_idx].first.store(nullptr);
-        pcoin[thread_idx].second.store(-1);
+        pcoin[thread_idx].first = nullptr;
+        pcoin[thread_idx].second = -1;
         idx[thread_idx] = 0;
 
         tp.push([&, thread_idx]() {
@@ -4553,8 +4552,8 @@ bool CWallet::CreateCoinStake(ChainstateManager& chainman, const CWallet& wallet
                             is_found = CheckKernel(pindexPrev, nBits, nTimeBlock, nNonce, prevoutStake, chainman.ActiveChainstate().CoinsTip(), stakeCache);
                             if ( is_found )
                             {
-                                pcoin[thread_idx].first.store(const_cast<wallet::CWalletTx*>(coin.first));
-                                pcoin[thread_idx].second.store(coin.second);
+                                pcoin[thread_idx].first = const_cast<wallet::CWalletTx*>(coin.first);
+                                pcoin[thread_idx].second = coin.second;
                                 // Threads work finishes every second, no need to notify them, could be a slight optimization in future.
                                 break;          
                             }
@@ -4565,11 +4564,16 @@ bool CWallet::CreateCoinStake(ChainstateManager& chainman, const CWallet& wallet
                     {
                         // error happened, exit out of thread
                     }
+
+                    work_done.exchange(true, std::memory_order_release);
                 });
     }
 
     // We must wait for the work to finish before we can look at the results and see if we found a solution.
     tp.wait();
+
+    // Wait for cache to flush
+    while (!work_done.load(std::memory_order_acquire)){};
     
     // Sum the work
     int num_thread_loops = 0;
@@ -4580,13 +4584,12 @@ bool CWallet::CreateCoinStake(ChainstateManager& chainman, const CWallet& wallet
 
     s_coin_loop_prev_max_idx1.store(num_thread_loops);
 
-    bool fKernelFound = false;
     bool is_found = false;
     int thread_idx = 0;
     // Look to see if a solution was found in one of the threads.
     for ( int n=0; n<num_threads; n++ )
     {
-        if ( pcoin[n].first.load() && (pcoin[n].second.load() >= 0) )
+        if ( pcoin[n].first && (pcoin[n].second >= 0) )
         {
             is_found = true;
             thread_idx = n;
@@ -4603,7 +4606,7 @@ bool CWallet::CreateCoinStake(ChainstateManager& chainman, const CWallet& wallet
             LogPrint(BCLog::COINSTAKE, "CreateCoinStake : kernel found\n");
             std::vector<valtype> vSolutions;
             CScript scriptPubKeyOut;
-            scriptPubKeyKernel = pcoin[thread_idx].first.load()->tx->vout[pcoin[thread_idx].second.load()].scriptPubKey;
+            scriptPubKeyKernel = pcoin[thread_idx].first->tx->vout[pcoin[thread_idx].second].scriptPubKey;
             TxoutType whichType = Solver(scriptPubKeyKernel, vSolutions);
             if (whichType == TxoutType::NONSTANDARD)
             {
@@ -4651,27 +4654,19 @@ bool CWallet::CreateCoinStake(ChainstateManager& chainman, const CWallet& wallet
                 aggregateScriptPubKeyHashKernel = CScript() << OP_DUP << OP_HASH160 << ToByteVector(hash160) << OP_EQUALVERIFY << OP_CHECKSIG;
             }
 
-            txNew.vin.push_back(CTxIn(pcoin[thread_idx].first.load()->GetHash(), pcoin[thread_idx].second.load()));
-            nCredit += pcoin[thread_idx].first.load()->tx->vout[pcoin[thread_idx].second.load()].nValue;
-            vwtxPrev.push_back(pcoin[thread_idx].first.load());
+            txNew.vin.push_back(CTxIn(pcoin[thread_idx].first->GetHash(), pcoin[thread_idx].second));
+            nCredit += pcoin[thread_idx].first->tx->vout[pcoin[thread_idx].second].nValue;
+            vwtxPrev.push_back(pcoin[thread_idx].first);
             txNew.vout.push_back(CTxOut(0, scriptPubKeyOut));
 
             LogPrint(BCLog::COINSTAKE, "CreateCoinStake : added kernel type=%s\n", GetTxnOutputType(whichType).c_str());
-            fKernelFound = true;
+            // Kernel Found
             break;
         }
 
-        if (fKernelFound)
-        {
-            break;
-        }
         return false; // kernel not found
-    
     }
 
-
-    if (nCredit == 0 || nCredit > nBalance)
-        return false;
 
 
     const Consensus::Params& consensusParams = Params().GetConsensus();
